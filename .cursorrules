@@ -1,0 +1,69 @@
+# Shopee Data Pipeline - Cursor Rules
+
+## Project Overview
+This is a Python ETL pipeline for processing Shopee e-commerce order data from Excel files. It includes:
+- ETL pipeline (extract from Excel, transform, load to Parquet)
+- Interactive HTML dashboards with Plotly
+- Standalone Windows GUI app (tkinter)
+- GitHub Actions for automated Windows .exe builds
+
+## Tech Stack
+- **Python 3.11+**
+- **Polars** - DataFrame library (NOT pandas) - use `pl.len()` not `pl.count()`
+- **FastExcel/OpenPyXL** - Excel reading
+- **Plotly** - Interactive charts
+- **Tkinter** - GUI (built-in, no extra deps)
+- **PyInstaller** - Windows exe builds
+
+## Data Schema
+The Shopee order data has these columns:
+- Date (datetime)
+- Source (string) - "Shopee"
+- Order ID (string)
+- Status (string) - "Delivered", "Cancel by cust.", "Returned", "Failed delivery"
+- Reason cancelled (string)
+- Refund/ Exchange status (string)
+- Refund/ Exchange reason (string)
+- Region, City, Payment method (mostly null)
+- Platform (string) - "MKP"
+- Year, Month (int) - added by transform
+
+## Code Conventions
+- Use Polars, not Pandas
+- Use `pl.len()` instead of deprecated `pl.count()`
+- Type hints for function signatures
+- Path objects from pathlib, not string paths
+- f-strings for formatting
+
+## File Structure
+```
+├── main.py              # CLI entry point
+├── app_gui.py           # Windows GUI app (standalone, embedded ETL)
+├── src/
+│   ├── extract.py       # Read Excel files
+│   ├── transform.py     # Data transformations
+│   └── load.py          # Save to Parquet (partitioned by year/month)
+├── visualize.py         # Basic dashboard
+├── dashboard_compare.py # Comparison dashboard with MoM/YoY
+├── config.yaml          # Pipeline config
+└── .github/workflows/   # CI/CD
+```
+
+## Dashboard Requirements
+- Dark theme (bg: #1a1a2e)
+- Show percentages prominently, counts secondary
+- Month selector dropdown
+- Compare: current month vs last month vs same month last year
+- Color coding: green = good (delivery), red = bad (cancellation)
+
+## When Modifying
+- Keep app_gui.py self-contained (embedded ETL logic) for PyInstaller
+- Test locally before pushing (python main.py, python app_gui.py)
+- Update VERSION file when releasing
+- Tag releases as v1.0.0, v1.1.0, etc.
+
+## Don't
+- Don't use pandas
+- Don't add heavy dependencies (keep exe size reasonable)
+- Don't commit data files (*.xlsx, *.parquet, data/)
+
