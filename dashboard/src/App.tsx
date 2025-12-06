@@ -93,9 +93,19 @@ function App() {
       return;
     }
 
+    // Only fetch if we're on http/https (not file://)
+    if (window.location.protocol === 'file:') {
+      setError('No embedded data found. Please regenerate the dashboard.');
+      setLoading(false);
+      return;
+    }
+
     // Fallback to fetch for dev server
-    fetch('/data.json')
-      .then(res => res.json())
+    fetch('./data.json')
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
       .then(json => { setData(json); setLoading(false); })
       .catch(err => { setError(err.message); setLoading(false); });
   }, []);

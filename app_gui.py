@@ -326,9 +326,18 @@ def deploy_react_dashboard(output_dir: str, data: dict) -> str:
     if index_path.exists():
         html_content = index_path.read_text(encoding="utf-8")
 
-        # Inject data as a global variable before other scripts
-        data_script = f"<script>window.__DASHBOARD_DATA__ = {json.dumps(data)};</script>"
-        html_content = html_content.replace("<head>", f"<head>\n{data_script}")
+        # Escape </script> in JSON to prevent HTML injection issues
+        json_data = json.dumps(data, ensure_ascii=False)
+        json_data = json_data.replace("</script>", "<\\/script>")
+        json_data = json_data.replace("</Script>", "<\\/Script>")
+
+        # Inject data as inline script that runs immediately
+        data_script = (
+            f'<script type="text/javascript">window.__DASHBOARD_DATA__={json_data};</script>'
+        )
+
+        # Insert right after <head> so it loads before React
+        html_content = html_content.replace("<head>", f"<head>\n    {data_script}")
 
         index_path.write_text(html_content, encoding="utf-8")
 
