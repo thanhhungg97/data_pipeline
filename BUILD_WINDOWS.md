@@ -114,9 +114,26 @@ No installation required - just double-click to run!
 
 ## Troubleshooting
 
-### "Windows protected your PC" warning
-- Click "More info" → "Run anyway"
-- Or right-click exe → Properties → Unblock
+### "Windows protected your PC" / SmartScreen Warning
+
+This is normal for unsigned apps. To run:
+
+**Method 1:**
+1. Click **"More info"**
+2. Click **"Run anyway"**
+
+**Method 2:**
+1. Right-click the `.exe` file
+2. Select **Properties**
+3. At the bottom, check **"Unblock"**
+4. Click **OK**
+5. Double-click to run
+
+**Method 3 (IT Admin):**
+```powershell
+# Unblock via PowerShell
+Unblock-File -Path "DataProcessingPipeline*.exe"
+```
 
 ### Missing DLL errors
 - Make sure you built on same Windows version as target
