@@ -7,18 +7,17 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    chunkSizeWarningLimit: 600,
-    // Use esbuild (faster, smaller than terser)
+    chunkSizeWarningLimit: 800,
     minify: 'esbuild',
     rollupOptions: {
       output: {
-        // Combine everything into fewer files for smaller total size
-        manualChunks: (id) => {
-          // Bundle all node_modules into vendor chunk
-          if (id.includes('node_modules')) {
-            return 'vendor';
-          }
-        },
+        // IIFE format works with file:// protocol (no ES modules)
+        format: 'iife',
+        // Single file output
+        inlineDynamicImports: true,
+        // Predictable names
+        entryFileNames: 'assets/app.js',
+        assetFileNames: 'assets/[name].[ext]',
       },
     },
   },

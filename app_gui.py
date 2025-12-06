@@ -332,12 +332,15 @@ def deploy_react_dashboard(output_dir: str, data: dict) -> str:
         json_data = json_data.replace("</Script>", "<\\/Script>")
 
         # Inject data as inline script that runs immediately
-        data_script = (
-            f'<script type="text/javascript">window.__DASHBOARD_DATA__={json_data};</script>'
-        )
+        data_script = f"<script>window.__DASHBOARD_DATA__={json_data};</script>"
 
         # Insert right after <head> so it loads before React
         html_content = html_content.replace("<head>", f"<head>\n    {data_script}")
+
+        # Fix for file:// protocol: remove 'type="module"' and 'crossorigin'
+        # These cause CORS errors when opening HTML directly from filesystem
+        html_content = html_content.replace(' type="module"', "")
+        html_content = html_content.replace(" crossorigin", "")
 
         index_path.write_text(html_content, encoding="utf-8")
 
