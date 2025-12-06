@@ -396,7 +396,7 @@ function Overview({ data }: { data: DashboardData }) {
         <Card title="📊 Order Status Distribution">
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
-              <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={90} dataKey="value" label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>
+              <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={90} dataKey="value" label={({ percent }) => `${((percent ?? 0) * 100).toFixed(0)}%`}>
                 {pieData.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
               </Pie>
               <Tooltip {...tooltipStyle} formatter={(value: number, name: string) => [fmt(value) + ' orders', name]} />
@@ -414,7 +414,7 @@ function Overview({ data }: { data: DashboardData }) {
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.15)" fill="transparent" />
               <XAxis type="number" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} label={{ value: 'Number of Orders', position: 'bottom', fill: '#94a3b8', fontSize: 12 }} />
               <YAxis type="category" dataKey="shortName" stroke="#94a3b8" tick={{ fill: '#e2e8f0', fontSize: 12 }} width={160} />
-              <Tooltip {...tooltipStyle} formatter={(value: number, _: string, props: { payload: { name: string } }) => [fmt(value) + ' orders', props.payload.name]} />
+              <Tooltip {...tooltipStyle} formatter={(value: number, name: string) => [fmt(value) + ' orders', name]} />
               <Bar dataKey="value" fill="#f87171" radius={[0, 6, 6, 0]} />
             </BarChart>
           </ResponsiveContainer>

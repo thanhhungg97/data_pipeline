@@ -1,4 +1,4 @@
-name: Build Windows EXE
+name: Build Data Processing Pipeline
 
 on:
   # Build on push to main or version tags
@@ -23,16 +23,35 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
+      # ========== Build React Dashboard ==========
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: dashboard/package-lock.json
+      
+      - name: Install React dependencies
+        run: |
+          cd dashboard
+          npm ci
+      
+      - name: Build React dashboard
+        run: |
+          cd dashboard
+          npm run build
+      
+      # ========== Build Python EXE ==========
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
       
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller polars fastexcel openpyxl
+          pip install pyinstaller polars fastexcel openpyxl pyyaml
       
       - name: Get version
         id: version
@@ -48,14 +67,33 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Building version: $VERSION"
       
-      - name: Build EXE
+      - name: Build EXE with bundled React dashboard
         run: |
-          pyinstaller --onefile --windowed --name "ShopeeDataPipeline-${{ steps.version.outputs.version }}" app_gui.py
+          pyinstaller --onefile --windowed `
+            --name "DataProcessingPipeline-${{ steps.version.outputs.version }}" `
+            --add-data "config.yaml;." `
+            --add-data "src;src" `
+            --add-data "dashboard/dist;dashboard_dist" `
+            --hidden-import src.etl `
+            --hidden-import src.etl.pipeline `
+            --hidden-import src.etl.base `
+            --hidden-import src.etl.bronze `
+            --hidden-import src.etl.bronze.base `
+            --hidden-import src.etl.bronze.shopee `
+            --hidden-import src.etl.bronze.website `
+            --hidden-import src.etl.silver `
+            --hidden-import src.etl.silver.base `
+            --hidden-import src.etl.silver.shopee `
+            --hidden-import src.etl.silver.website `
+            --hidden-import src.etl.gold `
+            --hidden-import src.etl.gold.combine `
+            --collect-all polars `
+            app_gui.py
       
       - name: Upload artifact (for all builds)
         uses: actions/upload-artifact@v4
         with:
-          name: ShopeeDataPipeline-${{ steps.version.outputs.version }}
+          name: DataProcessingPipeline-${{ steps.version.outputs.version }}
           path: dist/*.exe
           retention-days: 30
 
@@ -69,29 +107,34 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: ShopeeDataPipeline-${{ github.ref_name }}
+          name: DataProcessingPipeline-${{ github.ref_name }}
           path: dist/
       
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          name: Shopee Data Pipeline ${{ github.ref_name }}
+          name: Data Processing Pipeline ${{ github.ref_name }}
           body: |
-            ## Shopee Data Pipeline ${{ github.ref_name }}
+            ## Data Processing Pipeline ${{ github.ref_name }}
             
             ### 📥 Download
-            Download `ShopeeDataPipeline-${{ github.ref_name }}.exe` below.
+            Download `DataProcessingPipeline-${{ github.ref_name }}.exe` below.
             
             ### 🚀 Usage
             1. Double-click the .exe file
             2. Select your Excel files folder
             3. Click "Run Pipeline"
-            4. View the dashboard!
+            4. View the interactive React dashboard!
             
             No installation required - just run the exe!
+            
+            ### ⚙️ Features
+            - Unified ETL pipeline (same logic as CLI)
+            - **Bundled React dashboard** with charts and comparisons
+            - Status normalization from config.yaml
+            - Partitioned Parquet output
           files: dist/*.exe
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

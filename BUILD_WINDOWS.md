@@ -2,6 +2,8 @@
 
 This creates a standalone `.exe` file that runs without Python or any libraries installed.
 
+The GUI app uses the **same ETL logic** as the CLI (`main.py`) via the shared `src/etl/pipeline.py` module.
+
 ## Option 1: Build on Windows (Recommended)
 
 ### Prerequisites
@@ -12,18 +14,23 @@ This creates a standalone `.exe` file that runs without Python or any libraries 
 
 ```cmd
 # 1. Install dependencies
-pip install pyinstaller polars fastexcel openpyxl
+pip install pyinstaller polars fastexcel openpyxl pyyaml
 
-# 2. Build the executable
-pyinstaller --onefile --windowed --name ShopeeDataPipeline app_gui.py
+# 2. Run the build script
+python build_exe.py
 
 # 3. Find your exe
 # Output: dist\ShopeeDataPipeline.exe
 ```
 
-### Alternative using spec file (more control)
+### Manual Build (alternative)
 ```cmd
-pyinstaller ShopeeDataPipeline.spec
+pyinstaller --onefile --windowed --name DataProcessingPipeline ^
+    --add-data "config.yaml;." ^
+    --add-data "src;src" ^
+    --hidden-import src.etl.pipeline ^
+    --collect-all polars ^
+    app_gui.py
 ```
 
 ## Option 2: Build on Mac for Windows (Cross-compile)
@@ -58,17 +65,38 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install pyinstaller polars fastexcel openpyxl
+          pip install pyinstaller polars fastexcel openpyxl pyyaml
       
       - name: Build EXE
         run: |
-          pyinstaller --onefile --windowed --name ShopeeDataPipeline app_gui.py
+          python build_exe.py
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ShopeeDataPipeline
-          path: dist/ShopeeDataPipeline.exe
+          name: DataProcessingPipeline
+          path: dist/DataProcessingPipeline.exe
+```
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Shared Codebase                      │
+├─────────────────────────────────────────────────────────┤
+│                  src/etl/pipeline.py                    │
+│            (run_simple_etl, generate_metrics)           │
+└───────────────────┬─────────────────┬───────────────────┘
+                    │                 │
+          ┌─────────▼─────────┐  ┌────▼────┐
+          │    app_gui.py     │  │ main.py │
+          │  (tkinter GUI)    │  │  (CLI)  │
+          └───────────────────┘  └─────────┘
+                    │
+          ┌─────────▼─────────┐
+          │DataProcessingPipeline│
+          │      .exe         │
+          └───────────────────┘
 ```
 
 ## Output
@@ -76,12 +104,12 @@ jobs:
 After building, you'll have:
 ```
 dist/
-└── ShopeeDataPipeline.exe   # ~50-100MB standalone executable
+└── DataProcessingPipeline.exe   # ~50-100MB standalone executable
 ```
 
 ## Distributing
 
-Just copy `ShopeeDataPipeline.exe` to the target Windows machine. 
+Just copy `DataProcessingPipeline.exe` to the target Windows machine. 
 No installation required - just double-click to run!
 
 ## Troubleshooting
@@ -98,3 +126,6 @@ No installation required - just double-click to run!
 - Common with PyInstaller exes
 - Add exception or sign the executable
 
+### Import errors
+- The `src/etl` modules are bundled with `--add-data "src;src"`
+- Hidden imports are specified for each module

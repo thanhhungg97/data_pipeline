@@ -21,6 +21,7 @@ select = [
 ignore = [
     "E501",  # line too long (handled by formatter)
     "B008",  # function calls in argument defaults
+    "B905",  # zip() without strict= (not supported in Python 3.9)
     "C901",  # too complex
 ]
 
@@ -32,4 +33,5 @@ quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
+
 
