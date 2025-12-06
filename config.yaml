@@ -3,17 +3,46 @@
 paths:
   input_dir: "data/raw"
   output_dir: "data/processed"
-  
-# Add your Excel files here
+
+# Data sources configuration
+# Each source can have different column mappings
 sources:
-  # Example:
-  # - name: orders
-  #   file: orders.xlsx
-  #   sheet: Sheet1
-  # - name: customers
-  #   file: customers.xlsx
-  #   sheet: Sheet1
+  shopee:
+    pattern: "Shopee*.xlsx"  # File pattern to match
+    source_name: "Shopee"
+    columns:
+      date: "Date"
+      order_id: "Order ID"
+      status: "Status"
+      reason_cancelled: "Reason cancelled"
+      
+  website:
+    pattern: "Website*.xlsx"
+    source_name: "Website"
+    columns:
+      date: "Date"
+      order_id: "Order ID"
+      status: "Status"
+      reason_cancelled: "Reason cancelled"
+      
+  # Add more sources here as needed:
+  # lazada:
+  #   pattern: "Lazada*.xlsx"
+  #   source_name: "Lazada"
+  #   columns:
+  #     date: "Order Date"
+  #     order_id: "Order No"
+  #     status: "Order Status"
 
 output:
-  format: parquet  # parquet, csv, or sqlite
+  format: parquet  # parquet or csv
 
+# Standard column names (internal)
+schema:
+  date: "Date"
+  source: "Source"
+  order_id: "Order ID"
+  status: "Status"
+  reason_cancelled: "Reason cancelled"
+  year: "Year"
+  month: "Month"

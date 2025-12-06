@@ -54,39 +54,54 @@ df.group_by("region").agg([
 df1.join(df2, on="customer_id", how="left")
 ```
 
-## Data Schema
-The Shopee order data has these columns:
+## Multi-Source Architecture
+The pipeline supports multiple data sources (Shopee, Website, Lazada, etc.):
+- Configure sources in `config.yaml` with file patterns
+- Each source can have different column mappings
+- Data is normalized to standard schema during transform
+- Output is partitioned by source AND year/month
+
+## Data Schema (Standard)
 - Date (datetime)
-- Source (string) - "Shopee"
+- Source (string) - "Shopee", "Website", "Lazada", etc.
 - Order ID (string)
-- Status (string) - "Delivered", "Cancel by cust.", "Returned", "Failed delivery"
+- Status (string) - "Delivered", "Cancelled", "Returned", "Failed"
+- Status_Normalized (string) - standardized status across sources
 - Reason cancelled (string)
-- Refund/ Exchange status (string)
-- Refund/ Exchange reason (string)
-- Region, City, Payment method (mostly null)
-- Platform (string) - "MKP"
 - Year, Month (int) - added by transform
+
+## Adding a New Source
+1. Add source config to `config.yaml`:
+   ```yaml
+   sources:
+     newstore:
+       pattern: "NewStore*.xlsx"
+       source_name: "NewStore"
+   ```
+2. Place files in `data/raw/` matching the pattern
+3. Run pipeline - it auto-detects and processes
 
 ## File Structure
 ```
-├── main.py                 # CLI entry point
+├── main.py                 # CLI entry point (multi-source ETL)
 ├── app_gui.py              # Windows GUI app (standalone, embedded ETL)
 ├── src/
 │   ├── __init__.py
-│   ├── extract.py          # Read Excel files
-│   ├── transform.py        # Data transformations
-│   └── load.py             # Save to Parquet (partitioned by year/month)
+│   ├── extract.py          # Read Excel files (multi-source support)
+│   ├── transform.py        # Data transformations + normalization
+│   └── load.py             # Save to Parquet (partitioned by source/year/month)
 ├── visualize.py            # Basic dashboard
-├── dashboard_compare.py    # Comparison dashboard with MoM/YoY
-├── config.yaml             # Pipeline config
+├── dashboard_compare.py    # Month comparison dashboard (MoM/YoY)
+├── dashboard_sources.py    # Multi-source comparison dashboard
+├── config.yaml             # Pipeline + sources config
 ├── requirements.txt        # Python dependencies
 ├── VERSION                 # Current version number
 ├── build_exe.py            # PyInstaller build script
 ├── BUILD_WINDOWS.md        # Windows build instructions
 ├── .github/workflows/      # CI/CD (build.yml)
 └── data/
-    ├── raw/                # Input Excel files (gitignored)
-    └── processed/          # Output: year/month/orders.parquet (gitignored)
+    ├── raw/                # Input: Shopee*.xlsx, Website*.xlsx, etc.
+    └── processed/          # Output: source/year/month/orders.parquet
 ```
 
 ## Dashboard Requirements
