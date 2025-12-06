@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shopee Orders - Monthly Comparison</title>
+    <title>Monthly Comparison Dashboard</title>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <link rel="stylesheet" href="templates/base.css">
 </head>
@@ -16,6 +16,10 @@
     </div>
     
     <div class="controls">
+        <div class="control-group">
+            <label>Select Source</label>
+            <select id="sourceSelector" onchange="updateDashboard()"></select>
+        </div>
         <div class="control-group">
             <label>Select Month</label>
             <select id="monthSelector" onchange="updateDashboard()"></select>
@@ -104,26 +108,52 @@
     </div>
 
     <script>
-        const monthlyData = {{DATA}};
-        
-        monthlyData.sort((a, b) => {
-            if (a.Year !== b.Year) return a.Year - b.Year;
-            return a.Month - b.Month;
-        });
-        
-        const selector = document.getElementById('monthSelector');
+        const allData = {{DATA}};
+        const allSources = {{SOURCES}};
         const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         
-        [...monthlyData].reverse().forEach((d, i) => {
-            const option = document.createElement('option');
-            option.value = `${d.Year}-${d.Month}`;
-            option.textContent = `${monthNames[d.Month]} ${d.Year}`;
-            if (i === 0) option.selected = true;
-            selector.appendChild(option);
+        // Populate source selector
+        const sourceSelector = document.getElementById('sourceSelector');
+        const sourceOpt = document.createElement('option');
+        sourceOpt.value = 'All';
+        sourceOpt.textContent = '📊 All Sources';
+        sourceSelector.appendChild(sourceOpt);
+        
+        allSources.forEach(source => {
+            const opt = document.createElement('option');
+            opt.value = source;
+            opt.textContent = source;
+            sourceSelector.appendChild(opt);
         });
         
+        function getFilteredData() {
+            const source = sourceSelector.value;
+            if (source === 'All') {
+                return allData.filter(d => d.Source === 'All');
+            }
+            return allData.filter(d => d.Source === source);
+        }
+        
+        function updateMonthSelector() {
+            const data = getFilteredData();
+            data.sort((a, b) => a.Year !== b.Year ? a.Year - b.Year : a.Month - b.Month);
+            
+            const monthSelector = document.getElementById('monthSelector');
+            const currentValue = monthSelector.value;
+            monthSelector.innerHTML = '';
+            
+            [...data].reverse().forEach((d, i) => {
+                const opt = document.createElement('option');
+                opt.value = `${d.Year}-${d.Month}`;
+                opt.textContent = `${monthNames[d.Month]} ${d.Year}`;
+                if (opt.value === currentValue || i === 0) opt.selected = true;
+                monthSelector.appendChild(opt);
+            });
+        }
+        
         function getMonthData(year, month) {
-            return monthlyData.find(d => d.Year === year && d.Month === month);
+            const data = getFilteredData();
+            return data.find(d => d.Year === year && d.Month === month);
         }
         
         function getLastMonth(year, month) {
@@ -131,7 +161,7 @@
             return { year, month: month - 1 };
         }
         
-        function formatNumber(num) { return num.toLocaleString(); }
+        function formatNumber(num) { return num ? num.toLocaleString() : '0'; }
         
         function formatChange(current, previous, isRateCompare = false) {
             if (!previous || previous === 0) return '<span class="neutral">N/A</span>';
@@ -143,7 +173,12 @@
         }
         
         function updateDashboard() {
-            const [year, month] = selector.value.split('-').map(Number);
+            updateMonthSelector();
+            
+            const monthSelector = document.getElementById('monthSelector');
+            if (!monthSelector.value) return;
+            
+            const [year, month] = monthSelector.value.split('-').map(Number);
             const current = getMonthData(year, month);
             if (!current) return;
             
@@ -152,8 +187,8 @@
             const lastYear = getMonthData(year - 1, month);
             
             document.getElementById('totalOrders').textContent = formatNumber(current.total_orders);
-            document.getElementById('deliveryRate').textContent = current.delivery_rate + '%';
-            document.getElementById('cancelRate').textContent = current.cancel_rate + '%';
+            document.getElementById('deliveryRate').textContent = (current.delivery_rate || 0) + '%';
+            document.getElementById('cancelRate').textContent = (current.cancel_rate || 0) + '%';
             
             document.getElementById('totalVsLastMonth').innerHTML = formatChange(current.total_orders, lastMonth?.total_orders);
             document.getElementById('totalVsLastYear').innerHTML = formatChange(current.total_orders, lastYear?.total_orders);
@@ -169,13 +204,15 @@
                 ? `<span class="${cancelVsLY > 0 ? 'negative' : 'positive'}">${cancelVsLY > 0 ? '↑' : '↓'} ${Math.abs(cancelVsLY)}pp</span>`
                 : '<span class="neutral">N/A</span>';
             
-            document.getElementById('deliveredPct').textContent = `${current.delivery_rate}%`;
+            document.getElementById('deliveredPct').textContent = `${current.delivery_rate || 0}%`;
             document.getElementById('deliveredCount').textContent = `(${formatNumber(current.delivered)})`;
-            document.getElementById('cancelledPct').textContent = `${current.cancel_rate}%`;
+            document.getElementById('cancelledPct').textContent = `${current.cancel_rate || 0}%`;
             document.getElementById('cancelledCount').textContent = `(${formatNumber(current.cancelled)})`;
-            document.getElementById('returnedPct').textContent = `${(current.returned/current.total_orders*100).toFixed(1)}%`;
+            const returnRate = current.total_orders ? (current.returned/current.total_orders*100).toFixed(1) : 0;
+            document.getElementById('returnedPct').textContent = `${returnRate}%`;
             document.getElementById('returnedCount').textContent = `(${formatNumber(current.returned)})`;
-            document.getElementById('failedPct').textContent = `${(current.failed/current.total_orders*100).toFixed(1)}%`;
+            const failedRate = current.total_orders ? (current.failed/current.total_orders*100).toFixed(1) : 0;
+            document.getElementById('failedPct').textContent = `${failedRate}%`;
             document.getElementById('failedCount').textContent = `(${formatNumber(current.failed)})`;
             
             updateTrendChart(year, month);
@@ -183,9 +220,12 @@
         }
         
         function updateTrendChart(currentYear, currentMonth) {
-            const currentIdx = monthlyData.findIndex(d => d.Year === currentYear && d.Month === currentMonth);
+            const data = getFilteredData();
+            data.sort((a, b) => a.Year !== b.Year ? a.Year - b.Year : a.Month - b.Month);
+            
+            const currentIdx = data.findIndex(d => d.Year === currentYear && d.Month === currentMonth);
             const startIdx = Math.max(0, currentIdx - 11);
-            const trendData = monthlyData.slice(startIdx, currentIdx + 1);
+            const trendData = data.slice(startIdx, currentIdx + 1);
             const labels = trendData.map(d => `${monthNames[d.Month]} ${d.Year}`);
             
             Plotly.newPlot('trendChart', [
@@ -222,4 +262,3 @@
     </script>
 </body>
 </html>
-
