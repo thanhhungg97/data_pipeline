@@ -4,6 +4,7 @@ xlrd>=2.0.0
 pyyaml>=6.0
 fastexcel>=0.7.0
 xlsx2csv>=0.8.0
+customtkinter>=5.2.0
 
 # Development/Linting
 ruff>=0.1.0

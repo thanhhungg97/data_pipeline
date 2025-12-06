@@ -98,6 +98,8 @@ def build():
         "tkinter.filedialog",
         "--hidden-import",
         "tkinter.messagebox",
+        "--hidden-import",
+        "customtkinter",
         # Collect all dependencies
         "--collect-all",
         "polars",
@@ -107,6 +109,8 @@ def build():
         "openpyxl",
         "--collect-all",
         "yaml",
+        "--collect-all",
+        "customtkinter",
         # Entry point
         "app_gui.py",
     ]

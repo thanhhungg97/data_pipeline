@@ -1,7 +1,7 @@
 """
-Standalone GUI app for Data Processing Pipeline.
+Modern GUI app for Data Processing Pipeline.
+Uses CustomTkinter for modern UI design.
 Supports multiple sources with custom names and paths.
-Uses only tkinter (built into Python) - no extra GUI dependencies.
 """
 
 import json
@@ -9,12 +9,15 @@ import os
 import shutil
 import sys
 import threading
-import tkinter as tk
 import webbrowser
 from pathlib import Path
-from tkinter import filedialog, messagebox
 
+import customtkinter as ctk
 import yaml
+
+# Set appearance
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("blue")
 
 
 # Handle PyInstaller bundled paths
@@ -45,18 +48,7 @@ def run_multi_source_etl(
     progress_callback=None,
     source_callback=None,
 ):
-    """Run ETL for multiple sources with error handling.
-
-    Args:
-        sources: List of {"name": str, "path": str}
-        output_dir: Base output directory
-        config_path: Path to config.yaml
-        progress_callback: Callback for log messages
-        source_callback: Callback for source status updates (name, status)
-
-    Returns:
-        Dict with results including errors
-    """
+    """Run ETL for multiple sources with error handling."""
     import traceback
 
     import polars as pl
@@ -72,7 +64,6 @@ def run_multi_source_etl(
     output_path = Path(output_dir)
     all_dataframes = []
 
-    # Track results
     results = {
         "successful": [],
         "failed": [],
@@ -80,35 +71,30 @@ def run_multi_source_etl(
         "total_rows": 0,
     }
 
-    # Verify config exists
     if not os.path.exists(config_path):
         log(f"⚠️ Config not found at {config_path}, using defaults")
 
     log(f"🚀 Starting pipeline for {len(sources)} source(s)...")
 
-    # Process each source
     for i, source in enumerate(sources, 1):
         name = source["name"]
         path = source["path"]
 
         update_source(name, "processing")
-        log(f"\n{'=' * 50}")
-        log(f"📂 [{i}/{len(sources)}] Processing: {name}")
-        log(f"   Path: {path}")
+        log(f"\n{'─' * 40}")
+        log(f"📂 [{i}/{len(sources)}] {name}")
+        log(f"   {path}")
 
         try:
-            # Validate path
             if not os.path.isdir(path):
                 raise FileNotFoundError(f"Directory not found: {path}")
 
-            # Check for Excel files
             excel_files = list(Path(path).glob("*.xlsx")) + list(Path(path).glob("*.xls"))
             if not excel_files:
-                raise FileNotFoundError(f"No Excel files found in: {path}")
+                raise FileNotFoundError(f"No Excel files in: {path}")
 
-            log(f"   Found {len(excel_files)} Excel file(s)")
+            log(f"   Found {len(excel_files)} file(s)")
 
-            # Run ETL for this source
             source_output = output_path / name.lower().replace(" ", "_")
             run_simple_etl(
                 input_dir=path,
@@ -117,7 +103,6 @@ def run_multi_source_etl(
                 progress_callback=log,
             )
 
-            # Load processed data for combining
             parquet_files = list(source_output.glob("**/*.parquet"))
             if parquet_files:
                 df = pl.concat([pl.read_parquet(f) for f in parquet_files])
@@ -128,43 +113,35 @@ def run_multi_source_etl(
                 rows = 0
 
             update_source(name, "done")
-            log(f"✅ {name}: {rows:,} rows processed successfully")
-
+            log(f"✅ {name}: {rows:,} rows")
             results["successful"].append(name)
             results["total_rows"] += rows
 
         except FileNotFoundError as e:
             update_source(name, "error")
-            error_msg = str(e)
-            log(f"❌ {name}: {error_msg}")
+            log(f"❌ {name}: {str(e)}")
             results["failed"].append(name)
-            results["errors"][name] = {"type": "FileNotFound", "message": error_msg}
+            results["errors"][name] = {"type": "FileNotFound", "message": str(e)}
 
         except Exception as e:
             update_source(name, "error")
-            error_msg = str(e)
             error_trace = traceback.format_exc()
-            log(f"❌ {name}: Error - {error_msg}")
-            log(f"   Details: {error_trace.split(chr(10))[-2]}")
+            log(f"❌ {name}: {str(e)}")
             results["failed"].append(name)
             results["errors"][name] = {
                 "type": type(e).__name__,
-                "message": error_msg,
+                "message": str(e),
                 "traceback": error_trace,
             }
 
-    # Combine all sources
     if all_dataframes:
-        log(f"\n{'=' * 50}")
-        log("🔄 Combining all sources...")
+        log(f"\n{'─' * 40}")
+        log("🔄 Combining sources...")
 
         combined = pl.concat(all_dataframes, how="diagonal")
-
-        # Save combined data
         combined_output = output_path / "all_sources"
         combined_output.mkdir(parents=True, exist_ok=True)
 
-        # Partition by Year/Month
         if "Year" in combined.columns and "Month" in combined.columns:
             unique_periods = (
                 combined.filter(pl.col("Year").is_not_null())
@@ -180,31 +157,21 @@ def run_multi_source_etl(
                 part_path.parent.mkdir(parents=True, exist_ok=True)
                 partition.write_parquet(part_path)
 
-        log(f"✅ Combined {len(combined):,} total rows from {len(results['successful'])} sources")
+        log(f"✅ Combined {len(combined):,} rows")
 
-    # Print summary
-    log(f"\n{'=' * 50}")
-    log("📊 PIPELINE SUMMARY")
-    log(f"{'=' * 50}")
-    log(f"   ✅ Successful: {len(results['successful'])} source(s)")
-    for name in results["successful"]:
-        log(f"      • {name}")
-
-    if results["failed"]:
-        log(f"   ❌ Failed: {len(results['failed'])} source(s)")
-        for name in results["failed"]:
-            error = results["errors"].get(name, {})
-            log(f"      • {name}: {error.get('message', 'Unknown error')}")
-
-    log(f"   📁 Total rows: {results['total_rows']:,}")
-    log(f"   📂 Output: {output_path}")
+    log(f"\n{'═' * 40}")
+    log("📊 SUMMARY")
+    log(f"{'═' * 40}")
+    log(f"✅ Success: {len(results['successful'])}")
+    log(f"❌ Failed: {len(results['failed'])}")
+    log(f"📁 Total: {results['total_rows']:,} rows")
 
     results["output_dir"] = str(output_path)
     return results
 
 
 # ============================================================
-# DASHBOARD
+# DASHBOARD FUNCTIONS
 # ============================================================
 
 
@@ -214,19 +181,16 @@ def export_data_json(data_dir: str) -> str:
 
     path = Path(data_dir)
     all_files = list(path.glob("**/*.parquet"))
-
     if not all_files:
         return None
 
     df = pl.concat([pl.read_parquet(f) for f in all_files])
     status_col = "Status_Normalized" if "Status_Normalized" in df.columns else "Status"
 
-    # Get sources
     sources = []
     if "Source" in df.columns:
         sources = sorted(df["Source"].unique().to_list())
 
-    # Monthly metrics
     monthly = (
         df.group_by(["Year", "Month"])
         .agg(
@@ -254,7 +218,6 @@ def export_data_json(data_dir: str) -> str:
         ]
     )
 
-    # Per-source metrics
     metrics_data = []
     if "Source" in df.columns:
         by_source = (
@@ -289,7 +252,6 @@ def export_data_json(data_dir: str) -> str:
         )
         metrics_data = by_source.to_dicts()
 
-    # Build JSON
     data = {
         "monthly": monthly.to_dicts(),
         "metrics": metrics_data,
@@ -333,96 +295,99 @@ def deploy_react_dashboard(output_dir: str) -> str:
 # ============================================================
 
 
-class SourceCard(tk.Frame):
-    """A card widget for configuring a single source."""
+class SourceCard(ctk.CTkFrame):
+    """Modern card widget for a single source."""
+
+    STATUS_COLORS = {
+        "pending": "#6b7280",
+        "processing": "#f59e0b",
+        "done": "#10b981",
+        "error": "#ef4444",
+    }
 
     def __init__(self, parent, on_remove, card_id):
-        super().__init__(parent, bg="#16213e", relief="groove", bd=1)
+        super().__init__(parent, corner_radius=12, fg_color="#1e293b")
         self.on_remove = on_remove
         self.card_id = card_id
         self.status = "pending"
 
-        # Header with remove button
-        header = tk.Frame(self, bg="#16213e")
-        header.pack(fill="x", padx=10, pady=(10, 5))
+        # Main container
+        self.grid_columnconfigure(1, weight=1)
 
-        self.status_label = tk.Label(
-            header, text="⏳", bg="#16213e", fg="#888", font=("Segoe UI", 12)
+        # Status indicator
+        self.status_frame = ctk.CTkFrame(self, width=8, corner_radius=4, fg_color="#6b7280")
+        self.status_frame.grid(row=0, column=0, rowspan=3, sticky="ns", padx=(12, 8), pady=12)
+
+        # Content
+        content = ctk.CTkFrame(self, fg_color="transparent")
+        content.grid(row=0, column=1, sticky="ew", padx=(0, 12), pady=12)
+        content.grid_columnconfigure(0, weight=1)
+
+        # Header row with name and remove button
+        header = ctk.CTkFrame(content, fg_color="transparent")
+        header.grid(row=0, column=0, sticky="ew")
+        header.grid_columnconfigure(0, weight=1)
+
+        self.name_var = ctk.StringVar(value=f"Source {card_id}")
+        self.name_entry = ctk.CTkEntry(
+            header,
+            textvariable=self.name_var,
+            placeholder_text="Source name",
+            height=36,
+            font=ctk.CTkFont(size=14, weight="bold"),
         )
-        self.status_label.pack(side="left")
+        self.name_entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
 
-        remove_btn = tk.Button(
+        remove_btn = ctk.CTkButton(
             header,
             text="✕",
+            width=36,
+            height=36,
+            corner_radius=8,
+            fg_color="#374151",
+            hover_color="#ef4444",
             command=self._remove,
-            bg="#16213e",
-            fg="#ff6b6b",
-            font=("Segoe UI", 10, "bold"),
-            bd=0,
-            cursor="hand2",
         )
-        remove_btn.pack(side="right")
+        remove_btn.grid(row=0, column=1)
 
-        # Source name
-        name_frame = tk.Frame(self, bg="#16213e")
-        name_frame.pack(fill="x", padx=10, pady=2)
+        # Path row
+        path_frame = ctk.CTkFrame(content, fg_color="transparent")
+        path_frame.grid(row=1, column=0, sticky="ew", pady=(8, 0))
+        path_frame.grid_columnconfigure(0, weight=1)
 
-        tk.Label(name_frame, text="Name:", bg="#16213e", fg="#888", font=("Segoe UI", 9)).pack(
-            side="left"
-        )
-
-        self.name_var = tk.StringVar(value=f"Source {card_id}")
-        self.name_entry = tk.Entry(
-            name_frame,
-            textvariable=self.name_var,
-            font=("Segoe UI", 10),
-            width=20,
-            bg="#1a1a2e",
-            fg="white",
-            insertbackground="white",
-        )
-        self.name_entry.pack(side="left", padx=(5, 0), fill="x", expand=True)
-
-        # Folder path
-        path_frame = tk.Frame(self, bg="#16213e")
-        path_frame.pack(fill="x", padx=10, pady=(2, 5))
-
-        tk.Label(path_frame, text="Folder:", bg="#16213e", fg="#888", font=("Segoe UI", 9)).pack(
-            side="left"
-        )
-
-        self.path_var = tk.StringVar()
-        self.path_entry = tk.Entry(
+        self.path_var = ctk.StringVar()
+        self.path_entry = ctk.CTkEntry(
             path_frame,
             textvariable=self.path_var,
-            font=("Segoe UI", 9),
-            width=30,
-            bg="#1a1a2e",
-            fg="white",
-            insertbackground="white",
+            placeholder_text="Select folder with Excel files...",
+            height=36,
         )
-        self.path_entry.pack(side="left", padx=(5, 5), fill="x", expand=True)
+        self.path_entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
 
-        browse_btn = tk.Button(
+        browse_btn = ctk.CTkButton(
             path_frame,
             text="Browse",
+            width=80,
+            height=36,
+            corner_radius=8,
             command=self._browse,
-            font=("Segoe UI", 8),
-            bg="#4a90a4",
-            fg="white",
         )
-        browse_btn.pack(side="right")
+        browse_btn.grid(row=0, column=1)
 
-        # File count
-        self.file_label = tk.Label(
-            self, text="No folder selected", bg="#16213e", fg="#666", font=("Segoe UI", 8)
+        # File count label
+        self.file_label = ctk.CTkLabel(
+            content,
+            text="No folder selected",
+            font=ctk.CTkFont(size=12),
+            text_color="#6b7280",
         )
-        self.file_label.pack(anchor="w", padx=10, pady=(0, 10))
+        self.file_label.grid(row=2, column=0, sticky="w", pady=(4, 0))
 
-        # Bind path change
         self.path_var.trace_add("write", self._on_path_change)
 
     def _browse(self):
+        from tkinter import filedialog
+
         folder = filedialog.askdirectory(title=f"Select folder for {self.name_var.get()}")
         if folder:
             self.path_var.set(folder)
@@ -431,28 +396,24 @@ class SourceCard(tk.Frame):
         path = self.path_var.get()
         if path and os.path.isdir(path):
             files = list(Path(path).glob("*.xlsx")) + list(Path(path).glob("*.xls"))
-            self.file_label.config(text=f"📁 {len(files)} Excel files found", fg="#00d4aa")
+            self.file_label.configure(text=f"📁 {len(files)} Excel files", text_color="#10b981")
         else:
-            self.file_label.config(text="No folder selected", fg="#666")
+            self.file_label.configure(text="No folder selected", text_color="#6b7280")
 
     def _remove(self):
         self.on_remove(self.card_id)
 
     def get_source(self) -> dict:
-        """Return source config."""
         return {"name": self.name_var.get(), "path": self.path_var.get()}
 
     def set_source(self, name: str, path: str):
-        """Set source config."""
         self.name_var.set(name)
         self.path_var.set(path)
 
     def set_status(self, status: str):
-        """Update status indicator."""
         self.status = status
-        icons = {"pending": "⏳", "processing": "🔄", "done": "✅", "error": "❌"}
-        colors = {"pending": "#888", "processing": "#ffa726", "done": "#00d4aa", "error": "#ff6b6b"}
-        self.status_label.config(text=icons.get(status, "⏳"), fg=colors.get(status, "#888"))
+        color = self.STATUS_COLORS.get(status, "#6b7280")
+        self.status_frame.configure(fg_color=color)
 
 
 # ============================================================
@@ -460,12 +421,13 @@ class SourceCard(tk.Frame):
 # ============================================================
 
 
-class DataPipelineApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Data Processing Pipeline")
-        self.root.geometry("650x700")
-        self.root.configure(bg="#1a1a2e")
+class DataPipelineApp(ctk.CTk):
+    def __init__(self):
+        super().__init__()
+
+        self.title("Data Processing Pipeline")
+        self.geometry("700x800")
+        self.minsize(600, 700)
 
         self.source_cards = {}
         self.card_counter = 0
@@ -474,153 +436,166 @@ class DataPipelineApp:
         self.setup_ui()
 
     def setup_ui(self):
-        # Title
-        title = tk.Label(
-            self.root,
+        # Configure grid
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(3, weight=1)
+
+        # Header
+        header = ctk.CTkFrame(self, fg_color="transparent")
+        header.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 10))
+
+        ctk.CTkLabel(
+            header,
             text="📊 Data Processing Pipeline",
-            font=("Segoe UI", 20, "bold"),
-            bg="#1a1a2e",
-            fg="white",
-        )
-        title.pack(pady=(15, 10))
-
-        # Sources section
-        sources_header = tk.Frame(self.root, bg="#1a1a2e")
-        sources_header.pack(fill="x", padx=20)
-
-        tk.Label(
-            sources_header,
-            text="Configure Sources:",
-            bg="#1a1a2e",
-            fg="#888",
-            font=("Segoe UI", 10),
+            font=ctk.CTkFont(size=24, weight="bold"),
         ).pack(side="left")
 
-        add_btn = tk.Button(
+        # Sources section header
+        sources_header = ctk.CTkFrame(self, fg_color="transparent")
+        sources_header.grid(row=1, column=0, sticky="ew", padx=20, pady=(10, 5))
+
+        ctk.CTkLabel(
+            sources_header,
+            text="Data Sources",
+            font=ctk.CTkFont(size=16, weight="bold"),
+        ).pack(side="left")
+
+        add_btn = ctk.CTkButton(
             sources_header,
             text="+ Add Source",
+            width=120,
+            height=32,
+            corner_radius=8,
+            fg_color="#10b981",
+            hover_color="#059669",
             command=self.add_source,
-            font=("Segoe UI", 9),
-            bg="#00d4aa",
-            fg="white",
-            cursor="hand2",
         )
         add_btn.pack(side="right")
 
-        # Sources container (scrollable)
-        self.sources_frame = tk.Frame(self.root, bg="#1a1a2e")
-        self.sources_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        # Scrollable sources container
+        self.sources_scroll = ctk.CTkScrollableFrame(
+            self,
+            corner_radius=12,
+            fg_color="#0f172a",
+        )
+        self.sources_scroll.grid(row=2, column=0, sticky="nsew", padx=20, pady=5)
+        self.sources_scroll.grid_columnconfigure(0, weight=1)
 
         # Add initial source
         self.add_source()
 
+        # Config & Output section
+        config_frame = ctk.CTkFrame(self, fg_color="transparent")
+        config_frame.grid(row=3, column=0, sticky="ew", padx=20, pady=10)
+        config_frame.grid_columnconfigure(1, weight=1)
+
         # Config buttons
-        config_frame = tk.Frame(self.root, bg="#1a1a2e")
-        config_frame.pack(fill="x", padx=20, pady=5)
+        btn_frame = ctk.CTkFrame(config_frame, fg_color="transparent")
+        btn_frame.grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
 
-        tk.Button(
-            config_frame,
+        ctk.CTkButton(
+            btn_frame,
             text="💾 Save Config",
+            width=110,
+            height=32,
+            corner_radius=8,
+            fg_color="#374151",
+            hover_color="#4b5563",
             command=self.save_config,
-            font=("Segoe UI", 9),
-            bg="#4a90a4",
-            fg="white",
-        ).pack(side="left", padx=(0, 5))
+        ).pack(side="left", padx=(0, 8))
 
-        tk.Button(
-            config_frame,
+        ctk.CTkButton(
+            btn_frame,
             text="📂 Load Config",
+            width=110,
+            height=32,
+            corner_radius=8,
+            fg_color="#374151",
+            hover_color="#4b5563",
             command=self.load_config,
-            font=("Segoe UI", 9),
-            bg="#4a90a4",
-            fg="white",
         ).pack(side="left")
 
         # Output folder
-        output_frame = tk.Frame(self.root, bg="#1a1a2e")
-        output_frame.pack(fill="x", padx=20, pady=10)
-
-        tk.Label(
-            output_frame, text="Output Folder:", bg="#1a1a2e", fg="#888", font=("Segoe UI", 10)
-        ).pack(anchor="w")
-
-        output_row = tk.Frame(output_frame, bg="#1a1a2e")
-        output_row.pack(fill="x", pady=5)
-
-        self.output_var = tk.StringVar(value=str(Path.home() / "DataPipeline" / "processed"))
-        self.output_entry = tk.Entry(
-            output_row,
-            textvariable=self.output_var,
-            font=("Segoe UI", 10),
-            bg="#16213e",
-            fg="white",
-            insertbackground="white",
+        ctk.CTkLabel(config_frame, text="Output Folder:", font=ctk.CTkFont(size=13)).grid(
+            row=1, column=0, sticky="w", pady=(0, 5)
         )
-        self.output_entry.pack(side="left", fill="x", expand=True)
 
-        tk.Button(
+        output_row = ctk.CTkFrame(config_frame, fg_color="transparent")
+        output_row.grid(row=2, column=0, columnspan=2, sticky="ew")
+        output_row.grid_columnconfigure(0, weight=1)
+
+        self.output_var = ctk.StringVar(value=str(Path.home() / "DataPipeline" / "output"))
+        self.output_entry = ctk.CTkEntry(output_row, textvariable=self.output_var, height=36)
+        self.output_entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
+
+        ctk.CTkButton(
             output_row,
             text="Browse",
+            width=80,
+            height=36,
+            corner_radius=8,
             command=self.browse_output,
-            font=("Segoe UI", 9),
-            bg="#4a90a4",
-            fg="white",
-        ).pack(side="right", padx=(10, 0))
+        ).grid(row=0, column=1)
 
         # Run button
-        self.run_btn = tk.Button(
-            self.root,
-            text="▶ Run Pipeline",
+        self.run_btn = ctk.CTkButton(
+            self,
+            text="▶  Run Pipeline",
+            height=50,
+            corner_radius=12,
+            font=ctk.CTkFont(size=16, weight="bold"),
+            fg_color="#3b82f6",
+            hover_color="#2563eb",
             command=self.run_pipeline,
-            font=("Segoe UI", 12, "bold"),
-            bg="#00d4aa",
-            fg="white",
-            padx=30,
-            pady=10,
-            cursor="hand2",
         )
-        self.run_btn.pack(pady=15)
+        self.run_btn.grid(row=4, column=0, sticky="ew", padx=20, pady=15)
 
-        # Progress log
-        log_frame = tk.Frame(self.root, bg="#1a1a2e")
-        log_frame.pack(fill="both", expand=True, padx=20, pady=(0, 10))
+        # Progress section
+        progress_frame = ctk.CTkFrame(self, fg_color="transparent")
+        progress_frame.grid(row=5, column=0, sticky="nsew", padx=20, pady=(0, 10))
+        progress_frame.grid_columnconfigure(0, weight=1)
+        progress_frame.grid_rowconfigure(1, weight=1)
 
-        tk.Label(log_frame, text="Progress:", bg="#1a1a2e", fg="#888", font=("Segoe UI", 10)).pack(
-            anchor="w"
+        ctk.CTkLabel(
+            progress_frame,
+            text="Progress",
+            font=ctk.CTkFont(size=13),
+        ).grid(row=0, column=0, sticky="w", pady=(0, 5))
+
+        self.log_text = ctk.CTkTextbox(
+            progress_frame,
+            height=150,
+            corner_radius=8,
+            font=ctk.CTkFont(family="Consolas", size=12),
         )
+        self.log_text.grid(row=1, column=0, sticky="nsew")
 
-        self.log_text = tk.Text(
-            log_frame,
-            height=8,
-            bg="#16213e",
-            fg="#e0e0e0",
-            font=("Consolas", 9),
-            wrap="word",
-        )
-        self.log_text.pack(fill="both", expand=True, pady=5)
-
-        # Dashboard button
-        self.dashboard_btn = tk.Button(
-            self.root,
+        # Dashboard button (hidden initially)
+        self.dashboard_btn = ctk.CTkButton(
+            self,
             text="📊 Open Dashboard",
+            height=44,
+            corner_radius=10,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            fg_color="#8b5cf6",
+            hover_color="#7c3aed",
             command=self.open_dashboard,
-            font=("Segoe UI", 11),
-            bg="#4a90a4",
-            fg="white",
-            padx=20,
-            pady=8,
         )
+
+        # Configure row weights
+        self.grid_rowconfigure(2, weight=1)
+        self.grid_rowconfigure(5, weight=1)
 
     def add_source(self):
-        """Add a new source card."""
         self.card_counter += 1
-        card = SourceCard(self.sources_frame, self.remove_source, self.card_counter)
-        card.pack(fill="x", pady=5)
+        card = SourceCard(self.sources_scroll, self.remove_source, self.card_counter)
+        card.pack(fill="x", pady=6)
         self.source_cards[self.card_counter] = card
         self.update_run_button()
 
     def remove_source(self, card_id):
-        """Remove a source card."""
+        from tkinter import messagebox
+
         if len(self.source_cards) <= 1:
             messagebox.showwarning("Warning", "At least one source is required")
             return
@@ -630,34 +605,37 @@ class DataPipelineApp:
         self.update_run_button()
 
     def update_run_button(self):
-        """Update run button text with source count."""
         count = len(self.source_cards)
-        self.run_btn.config(text=f"▶ Run Pipeline ({count} source{'s' if count > 1 else ''})")
+        self.run_btn.configure(text=f"▶  Run Pipeline ({count} source{'s' if count > 1 else ''})")
 
     def browse_output(self):
+        from tkinter import filedialog
+
         folder = filedialog.askdirectory(title="Select output folder")
         if folder:
             self.output_var.set(folder)
 
     def save_config(self):
-        """Save current configuration to file."""
+        from tkinter import filedialog
+
         sources = [card.get_source() for card in self.source_cards.values()]
         config = {"sources": sources, "output_dir": self.output_var.get()}
 
         file_path = filedialog.asksaveasfilename(
             defaultextension=".yaml",
-            filetypes=[("YAML files", "*.yaml"), ("All files", "*.*")],
+            filetypes=[("YAML files", "*.yaml")],
             title="Save Configuration",
         )
         if file_path:
             with open(file_path, "w", encoding="utf-8") as f:
                 yaml.dump(config, f, default_flow_style=False)
-            self.log(f"✅ Config saved to: {file_path}")
+            self.log(f"✅ Config saved: {file_path}")
 
     def load_config(self):
-        """Load configuration from file."""
+        from tkinter import filedialog, messagebox
+
         file_path = filedialog.askopenfilename(
-            filetypes=[("YAML files", "*.yaml"), ("All files", "*.*")],
+            filetypes=[("YAML files", "*.yaml")],
             title="Load Configuration",
         )
         if file_path:
@@ -665,69 +643,64 @@ class DataPipelineApp:
                 with open(file_path, encoding="utf-8") as f:
                     config = yaml.safe_load(f)
 
-                # Clear existing sources
                 for card_id in list(self.source_cards.keys()):
                     self.source_cards[card_id].destroy()
                 self.source_cards.clear()
 
-                # Load sources
                 for source in config.get("sources", []):
                     self.card_counter += 1
-                    card = SourceCard(self.sources_frame, self.remove_source, self.card_counter)
+                    card = SourceCard(self.sources_scroll, self.remove_source, self.card_counter)
                     card.set_source(source.get("name", ""), source.get("path", ""))
-                    card.pack(fill="x", pady=5)
+                    card.pack(fill="x", pady=6)
                     self.source_cards[self.card_counter] = card
 
-                # Load output dir
                 if "output_dir" in config:
                     self.output_var.set(config["output_dir"])
 
                 self.update_run_button()
-                self.log(f"✅ Config loaded from: {file_path}")
+                self.log(f"✅ Config loaded: {file_path}")
 
             except Exception as e:
-                messagebox.showerror("Error", f"Failed to load config: {str(e)}")
+                messagebox.showerror("Error", f"Failed to load: {str(e)}")
 
     def log(self, message):
         self.log_text.insert("end", message + "\n")
         self.log_text.see("end")
-        self.root.update_idletasks()
+        self.update_idletasks()
 
     def update_source_status(self, name, status):
-        """Update status for a source card by name."""
         for card in self.source_cards.values():
             if card.name_var.get() == name:
                 card.set_status(status)
                 break
-        self.root.update_idletasks()
+        self.update_idletasks()
 
     def run_pipeline(self):
-        # Validate sources
+        from tkinter import messagebox
+
         sources = []
         for card in self.source_cards.values():
             source = card.get_source()
             if not source["path"] or not os.path.isdir(source["path"]):
-                messagebox.showerror("Error", f"Invalid path for source: {source['name']}")
+                messagebox.showerror("Error", f"Invalid path: {source['name']}")
                 return
             sources.append(source)
 
         if not sources:
-            messagebox.showerror("Error", "Please add at least one source")
+            messagebox.showerror("Error", "Add at least one source")
             return
 
-        # Reset status
         for card in self.source_cards.values():
             card.set_status("pending")
 
-        self.run_btn.config(state="disabled", text="Running...")
+        self.run_btn.configure(state="disabled", text="⏳ Processing...")
         self.log_text.delete("1.0", "end")
-        self.dashboard_btn.pack_forget()
+        self.dashboard_btn.grid_forget()
 
         def task():
             try:
                 config_path = resource_path("config.yaml")
 
-                # Run multi-source ETL
                 results = run_multi_source_etl(
                     sources=sources,
                     output_dir=self.output_var.get(),
@@ -736,86 +709,64 @@ class DataPipelineApp:
                     source_callback=self.update_source_status,
                 )
 
-                # Check if any sources succeeded
                 if results["successful"]:
-                    # Generate dashboard
                     self.log("\n📊 Generating dashboard...")
 
-                    # Export data.json
                     try:
                         export_data_json(self.output_var.get())
                     except Exception as e:
-                        self.log(f"⚠️ Dashboard export warning: {str(e)}")
+                        self.log(f"⚠️ Export warning: {str(e)}")
 
-                    # Deploy React dashboard
                     try:
                         dashboard_html = deploy_react_dashboard(self.output_var.get())
                         if dashboard_html:
                             self.dashboard_path = dashboard_html
-                            self.log(f"✅ Dashboard ready: {dashboard_html}")
+                            self.log("✅ Dashboard ready!")
                         else:
                             self.dashboard_path = None
-                            self.log("⚠️ React dashboard not bundled, data exported to JSON")
                     except Exception as e:
                         self.dashboard_path = None
-                        self.log(f"⚠️ Dashboard deploy warning: {str(e)}")
+                        self.log(f"⚠️ Dashboard: {str(e)}")
 
-                    # Show dashboard button
-                    self.root.after(0, lambda: self.dashboard_btn.pack(pady=10))
+                    self.after(
+                        0, lambda: self.dashboard_btn.grid(row=6, column=0, padx=20, pady=(0, 15))
+                    )
 
-                # Show error dialog if some sources failed
                 if results["failed"]:
                     failed_count = len(results["failed"])
                     success_count = len(results["successful"])
 
                     if success_count > 0:
-                        # Partial success
-                        self.root.after(
+                        self.after(
                             0,
                             lambda: messagebox.showwarning(
                                 "Partial Success",
-                                f"Pipeline completed with errors:\n\n"
-                                f"✅ Successful: {success_count} source(s)\n"
-                                f"❌ Failed: {failed_count} source(s)\n\n"
-                                f"Failed sources:\n"
-                                + "\n".join(
-                                    f"• {name}: {results['errors'][name]['message']}"
-                                    for name in results["failed"]
-                                ),
+                                f"✅ Success: {success_count}\n❌ Failed: {failed_count}\n\n"
+                                + "\n".join(f"• {n}" for n in results["failed"]),
                             ),
                         )
                     else:
-                        # All failed
-                        self.root.after(
+                        self.after(
                             0,
                             lambda: messagebox.showerror(
-                                "Pipeline Failed",
+                                "Failed",
                                 f"All {failed_count} source(s) failed:\n\n"
-                                + "\n".join(
-                                    f"• {name}: {results['errors'][name]['message']}"
-                                    for name in results["failed"]
-                                ),
+                                + "\n".join(f"• {n}" for n in results["failed"]),
                             ),
                         )
 
             except Exception as ex:
                 import traceback
 
-                error_trace = traceback.format_exc()
                 error_msg = str(ex)
-                self.log(f"\n❌ Critical Error: {error_msg}")
-                self.log(f"   {error_trace}")
-                self.root.after(
-                    0,
-                    lambda msg=error_msg: messagebox.showerror(
-                        "Critical Error", f"Pipeline crashed:\n\n{msg}"
-                    ),
-                )
+                self.log(f"\n❌ Error: {error_msg}")
+                self.log(traceback.format_exc())
+                self.after(0, lambda m=error_msg: messagebox.showerror("Error", m))
             finally:
-                self.root.after(
+                self.after(
                     0,
-                    lambda: self.run_btn.config(
-                        state="normal", text=f"▶ Run Pipeline ({len(sources)} sources)"
+                    lambda: self.run_btn.configure(
+                        state="normal", text=f"▶  Run Pipeline ({len(sources)} sources)"
                     ),
                 )
 
@@ -825,14 +776,12 @@ class DataPipelineApp:
         if self.dashboard_path:
             webbrowser.open(f"file://{self.dashboard_path}")
         else:
-            # Open output folder
             webbrowser.open(f"file://{self.output_var.get()}")
 
 
 def main():
-    root = tk.Tk()
-    DataPipelineApp(root)
-    root.mainloop()
+    app = DataPipelineApp()
+    app.mainloop()
 
 
 if __name__ == "__main__":
