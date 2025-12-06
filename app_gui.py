@@ -29,12 +29,24 @@ def resource_path(relative_path):
 
 
 # ============================================================
-# IMPORT SHARED ETL LOGIC
+# LAZY IMPORT FOR FASTER STARTUP
 # ============================================================
 
 sys.path.insert(0, resource_path("."))
 
-from src.etl.pipeline import run_simple_etl_files  # noqa: E402, F401
+# Don't import polars/ETL at startup - import when needed
+_etl_module = None
+
+
+def get_etl_function():
+    """Lazy load ETL to speed up app startup."""
+    global _etl_module
+    if _etl_module is None:
+        from src.etl import pipeline
+
+        _etl_module = pipeline
+    return _etl_module.run_simple_etl_files
+
 
 # ============================================================
 # MULTI-SOURCE ETL
@@ -101,7 +113,8 @@ def run_multi_source_etl(
                 raise FileNotFoundError("No valid Excel files found")
 
             source_output = output_path / name.lower().replace(" ", "_")
-            etl_result = run_simple_etl_files(
+            run_etl = get_etl_function()
+            etl_result = run_etl(
                 files=excel_files,
                 output_dir=str(source_output),
                 config_path=config_path,
