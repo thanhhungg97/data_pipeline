@@ -90,9 +90,9 @@ def add_year_month(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def ensure_source(df: pl.DataFrame, source_name: str) -> pl.DataFrame:
-    """Ensure Source column exists."""
-    if "Source" not in df.columns:
-        df = df.with_columns(pl.lit(source_name).alias("Source"))
+    """Set Source column to the data source (folder name), overwriting any existing value."""
+    # Always set Source to the folder/data source name, not the value in the file
+    df = df.with_columns(pl.lit(source_name).alias("Source"))
     return df
 
 
