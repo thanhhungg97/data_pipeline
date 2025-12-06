@@ -5,7 +5,7 @@ import json
 
 
 def load_all_data(processed_dir: str = "data/processed") -> pl.DataFrame:
-    """Load all partitioned parquet files (supports multi-source structure)."""
+    """Load all partitioned parquet files (data is already normalized)."""
     path = Path(processed_dir)
     all_files = list(path.glob("**/*.parquet"))
     

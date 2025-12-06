@@ -20,6 +20,11 @@ def load_config(config_path: str = "config.yaml") -> dict:
 def read_excel(file_path: str | Path, sheet_name: str = None) -> pl.DataFrame:
     """Read an Excel file into a Polars DataFrame."""
     df = pl.read_excel(file_path, sheet_name=sheet_name)
+    
+    # Normalize Date column to datetime
+    if "Date" in df.columns:
+        df = df.with_columns(pl.col("Date").cast(pl.Datetime).alias("Date"))
+    
     print(f"    {Path(file_path).name}: {len(df):,} rows")
     return df
 
