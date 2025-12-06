@@ -9,48 +9,25 @@ Standard Output Schema:
 - Reason cancelled (String)
 - Year (Int32)
 - Month (Int32)
+
+Status mappings and schema are loaded from config.yaml
 """
 
 import polars as pl
 
-# Standard schema for processed data
-STANDARD_SCHEMA = {
-    "Date": pl.Datetime,
-    "Source": pl.Utf8,
-    "Order ID": pl.Utf8,
-    "Status": pl.Utf8,
-    "Status_Normalized": pl.Utf8,
-    "Reason cancelled": pl.Utf8,
-    "Year": pl.Int32,
-    "Month": pl.Int32,
-}
+from .extract import load_config
 
-# Status normalization mapping
-STATUS_MAPPING = {
-    # Delivered variants
-    "Delivered": "Delivered",
-    "Completed": "Delivered",
-    "Done": "Delivered",
-    "Success": "Delivered",
-    "Giao thành công": "Delivered",
-    # Cancelled variants
-    "Cancel by cust.": "Cancelled",
-    "Cancelled": "Cancelled",
-    "Canceled": "Cancelled",
-    "Cancel": "Cancelled",
-    "Cancelled by customer": "Cancelled",
-    "Đã hủy": "Cancelled",
-    # Returned variants
-    "Returned": "Returned",
-    "Return": "Returned",
-    "Refunded": "Returned",
-    "Hoàn trả": "Returned",
-    # Failed variants
-    "Failed delivery": "Failed",
-    "Failed": "Failed",
-    "Delivery Failed": "Failed",
-    "Giao thất bại": "Failed",
-}
+
+def get_status_mapping() -> dict[str, str]:
+    """Load status mapping from config.yaml."""
+    config = load_config()
+    return config.get("status_mapping", {})
+
+
+def get_schema_config() -> dict[str, str]:
+    """Load schema column names from config.yaml."""
+    config = load_config()
+    return config.get("schema", {})
 
 
 def normalize_date(df: pl.DataFrame) -> pl.DataFrame:
@@ -60,14 +37,22 @@ def normalize_date(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
-def normalize_status(df: pl.DataFrame) -> pl.DataFrame:
-    """Normalize status values to standard categories."""
+def normalize_status(df: pl.DataFrame, status_mapping: dict[str, str] = None) -> pl.DataFrame:
+    """Normalize status values to standard categories.
+
+    Args:
+        df: DataFrame to normalize
+        status_mapping: Optional mapping dict. If None, loads from config.
+    """
     if "Status" not in df.columns:
         return df
 
+    if status_mapping is None:
+        status_mapping = get_status_mapping()
+
     df = df.with_columns(
         pl.col("Status")
-        .map_elements(lambda x: STATUS_MAPPING.get(x, x) if x else None, return_dtype=pl.Utf8)
+        .map_elements(lambda x: status_mapping.get(x, x) if x else None, return_dtype=pl.Utf8)
         .alias("Status_Normalized")
     )
     return df

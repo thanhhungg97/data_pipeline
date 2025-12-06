@@ -43,6 +43,44 @@ schema:
   source: "Source"
   order_id: "Order ID"
   status: "Status"
+  status_normalized: "Status_Normalized"
   reason_cancelled: "Reason cancelled"
   year: "Year"
   month: "Month"
+
+# Status normalization mapping
+# Maps various status values to standardized categories
+status_mapping:
+  # Delivered variants
+  Delivered: "Delivered"
+  Completed: "Delivered"
+  Done: "Delivered"
+  Success: "Delivered"
+  "Giao thành công": "Delivered"
+  
+  # Cancelled variants
+  "Cancel by cust.": "Cancelled"
+  Cancelled: "Cancelled"
+  Canceled: "Cancelled"
+  Cancel: "Cancelled"
+  "Cancelled by customer": "Cancelled"
+  "Đã hủy": "Cancelled"
+  
+  # Returned variants
+  Returned: "Returned"
+  Return: "Returned"
+  Refunded: "Returned"
+  "Hoàn trả": "Returned"
+  
+  # Failed variants
+  "Failed delivery": "Failed"
+  Failed: "Failed"
+  "Delivery Failed": "Failed"
+  "Giao thất bại": "Failed"
+
+# Normalized status categories (for dashboard filtering)
+status_categories:
+  - Delivered
+  - Cancelled
+  - Returned
+  - Failed

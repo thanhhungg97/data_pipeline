@@ -29,10 +29,35 @@ def resource_path(relative_path):
 def run_etl(input_dir: str, output_dir: str, progress_callback=None):
     """Run the full ETL pipeline."""
     import polars as pl
+    import yaml
 
     def log(msg):
         if progress_callback:
             progress_callback(msg)
+
+    # Load status mapping from config (or use defaults)
+    status_mapping = {
+        "Delivered": "Delivered",
+        "Completed": "Delivered",
+        "Done": "Delivered",
+        "Cancel by cust.": "Cancelled",
+        "Cancelled": "Cancelled",
+        "Canceled": "Cancelled",
+        "Returned": "Returned",
+        "Return": "Returned",
+        "Refunded": "Returned",
+        "Failed delivery": "Failed",
+        "Failed": "Failed",
+        "Delivery Failed": "Failed",
+    }
+    try:
+        config_path = resource_path("config.yaml")
+        if os.path.exists(config_path):
+            with open(config_path, encoding="utf-8") as f:
+                config = yaml.safe_load(f)
+                status_mapping = config.get("status_mapping", status_mapping)
+    except Exception:
+        pass  # Use default mapping
 
     # EXTRACT
     log("📂 Reading Excel files...")
@@ -61,6 +86,13 @@ def run_etl(input_dir: str, output_dir: str, progress_callback=None):
             pl.col("Date").dt.year().alias("Year"),
             pl.col("Date").dt.month().alias("Month"),
         ]
+    )
+
+    # Normalize Status
+    combined = combined.with_columns(
+        pl.col("Status")
+        .map_elements(lambda x: status_mapping.get(x, x) if x else None, return_dtype=pl.Utf8)
+        .alias("Status_Normalized")
     )
 
     log(f"✅ Combined {len(combined):,} rows")
@@ -102,22 +134,25 @@ def generate_dashboard(data_dir: str, output_file: str = "dashboard.html"):
 
     df = pl.concat([pl.read_parquet(f) for f in all_files])
 
-    # Calculate monthly metrics
+    # Use Status_Normalized if available (from new pipeline), fallback to Status
+    status_col = "Status_Normalized" if "Status_Normalized" in df.columns else "Status"
+
+    # Calculate monthly metrics using normalized status
     monthly = (
         df.group_by(["Year", "Month"])
         .agg(
             [
                 pl.len().alias("total_orders"),
-                pl.col("Status").filter(pl.col("Status") == "Delivered").len().alias("delivered"),
-                pl.col("Status")
-                .filter(pl.col("Status") == "Cancel by cust.")
+                pl.col(status_col)
+                .filter(pl.col(status_col) == "Delivered")
+                .len()
+                .alias("delivered"),
+                pl.col(status_col)
+                .filter(pl.col(status_col) == "Cancelled")
                 .len()
                 .alias("cancelled"),
-                pl.col("Status").filter(pl.col("Status") == "Returned").len().alias("returned"),
-                pl.col("Status")
-                .filter(pl.col("Status") == "Failed delivery")
-                .len()
-                .alias("failed"),
+                pl.col(status_col).filter(pl.col(status_col) == "Returned").len().alias("returned"),
+                pl.col(status_col).filter(pl.col(status_col) == "Failed").len().alias("failed"),
             ]
         )
         .sort(["Year", "Month"])
