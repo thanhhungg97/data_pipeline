@@ -1,0 +1,40 @@
+#!/bin/bash
+# Pre-push hook: Run linting before pushing
+
+echo "🔍 Running pre-push checks..."
+
+# Check if ruff is installed
+if ! command -v ruff &> /dev/null; then
+    echo "⚠️  ruff not found. Install with: pip install ruff"
+    exit 1
+fi
+
+# Run Python linting
+echo "📝 Checking Python code..."
+ruff check .
+if [ $? -ne 0 ]; then
+    echo "❌ Python linting failed. Fix issues with: ruff check . --fix"
+    exit 1
+fi
+
+# Run Python formatting check
+echo "📐 Checking Python formatting..."
+ruff format --check .
+if [ $? -ne 0 ]; then
+    echo "❌ Python formatting check failed. Format with: ruff format ."
+    exit 1
+fi
+
+# Check HTML/CSS with prettier (optional)
+if command -v npx &> /dev/null; then
+    echo "🎨 Checking HTML/CSS formatting..."
+    npx prettier --check "templates/*.html" "templates/*.css" 2>/dev/null
+    if [ $? -ne 0 ]; then
+        echo "⚠️  HTML/CSS not formatted. Format with: npx prettier --write 'templates/*.html' 'templates/*.css'"
+        # Warning only, don't block push
+    fi
+fi
+
+echo "✅ All pre-push checks passed!"
+exit 0
+

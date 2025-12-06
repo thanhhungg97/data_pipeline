@@ -1,139 +1,138 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shopee Orders Dashboard - Overview</title>
-    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-    <link rel="stylesheet" href="templates/base.css">
-</head>
-<body>
-    {{NAV}}
-    
-    <div class="header">
-        <h1>📊 Orders Dashboard - Overview</h1>
-        <p>Overall performance summary across all data</p>
-    </div>
-    
-    <div class="metrics-grid">
-        <div class="metric-card">
-            <h3>Total Orders</h3>
-            <div class="metric-value" id="totalOrders">-</div>
-        </div>
-        <div class="metric-card">
-            <h3>Delivery Rate</h3>
-            <div class="metric-value positive" id="deliveryRate">-</div>
-        </div>
-        <div class="metric-card">
-            <h3>Date Range</h3>
-            <div class="metric-value" id="dateRange" style="font-size: 24px;">-</div>
-        </div>
-    </div>
-    
-    <div class="status-grid">
-        <div class="status-item">
-            <h4>✅ Delivered</h4>
-            <span class="pct delivered" id="deliveredPct">-</span>
-            <span class="value" id="deliveredCount">-</span>
-        </div>
-        <div class="status-item">
-            <h4>❌ Cancelled</h4>
-            <span class="pct cancelled" id="cancelledPct">-</span>
-            <span class="value" id="cancelledCount">-</span>
-        </div>
-        <div class="status-item">
-            <h4>↩️ Returned</h4>
-            <span class="pct returned" id="returnedPct">-</span>
-            <span class="value" id="returnedCount">-</span>
-        </div>
-        <div class="status-item">
-            <h4>⚠️ Failed</h4>
-            <span class="pct failed" id="failedPct">-</span>
-            <span class="value" id="failedCount">-</span>
-        </div>
-    </div>
-    
-    <div class="charts-grid">
-        <div class="chart-card">
-            <h3>📈 Monthly Order Volume</h3>
-            <div id="trendChart"></div>
-        </div>
-        <div class="chart-card">
-            <h3>📊 Order Status Distribution</h3>
-            <div id="pieChart"></div>
-        </div>
-    </div>
-    
-    <div class="charts-grid" style="grid-template-columns: 1fr;">
-        <div class="chart-card">
-            <h3>❌ Top Cancellation Reasons</h3>
-            <div id="reasonsChart"></div>
-        </div>
-    </div>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Shopee Orders Dashboard - Overview</title>
+        <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+        <link rel="stylesheet" href="templates/base.css" />
+    </head>
+    <body>
+        {{NAV}}
 
-    <script>
-        const summaryData = {{SUMMARY}};
-        const monthlyData = {{MONTHLY}};
-        const reasonsData = {{REASONS}};
-        const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        
-        function fmt(n) { return n.toLocaleString(); }
-        
-        // Summary metrics
-        document.getElementById('totalOrders').textContent = fmt(summaryData.total);
-        document.getElementById('deliveryRate').textContent = summaryData.delivery_rate + '%';
-        document.getElementById('dateRange').textContent = summaryData.date_range;
-        
-        document.getElementById('deliveredPct').textContent = summaryData.delivery_rate + '%';
-        document.getElementById('deliveredCount').textContent = `(${fmt(summaryData.delivered)})`;
-        document.getElementById('cancelledPct').textContent = summaryData.cancel_rate + '%';
-        document.getElementById('cancelledCount').textContent = `(${fmt(summaryData.cancelled)})`;
-        document.getElementById('returnedPct').textContent = summaryData.return_rate + '%';
-        document.getElementById('returnedCount').textContent = `(${fmt(summaryData.returned)})`;
-        document.getElementById('failedPct').textContent = summaryData.failed_rate + '%';
-        document.getElementById('failedCount').textContent = `(${fmt(summaryData.failed)})`;
-        
-        // Trend chart
-        const labels = monthlyData.map(d => `${monthNames[d.Month]} ${d.Year}`);
-        Plotly.newPlot('trendChart', [{
-            x: labels, y: monthlyData.map(d => d.total_orders),
-            type: 'scatter', mode: 'lines+markers',
-            line: {color: '#00d4aa', width: 3}, marker: {size: 8}
-        }], {
-            paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-            font: {color: '#888'}, margin: {t: 20, r: 20, b: 60, l: 60},
-            xaxis: {gridcolor: 'rgba(255,255,255,0.1)', tickangle: -45},
-            yaxis: {gridcolor: 'rgba(255,255,255,0.1)'}
-        }, {responsive: true});
-        
-        // Pie chart
-        Plotly.newPlot('pieChart', [{
-            values: [summaryData.delivered, summaryData.cancelled, summaryData.returned, summaryData.failed],
-            labels: ['Delivered', 'Cancelled', 'Returned', 'Failed'],
-            type: 'pie', hole: 0.4,
-            marker: {colors: ['#00d4aa', '#ff6b6b', '#ffa726', '#ab47bc']},
-            textinfo: 'label+percent'
-        }], {
-            paper_bgcolor: 'rgba(0,0,0,0)',
-            font: {color: '#888'}, margin: {t: 20, r: 20, b: 20, l: 20},
-            showlegend: false
-        }, {responsive: true});
-        
-        // Reasons chart
-        if (reasonsData.length > 0) {
-            Plotly.newPlot('reasonsChart', [{
-                x: reasonsData.map(d => d.count),
-                y: reasonsData.map(d => d.reason),
-                type: 'bar', orientation: 'h',
-                marker: {color: '#ff6b6b'}
+        <div class="header">
+            <h1>📊 Orders Dashboard - Overview</h1>
+            <p>Overall performance summary across all data</p>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <h3>Total Orders</h3>
+                <div class="metric-value" id="totalOrders">-</div>
+            </div>
+            <div class="metric-card">
+                <h3>Delivery Rate</h3>
+                <div class="metric-value positive" id="deliveryRate">-</div>
+            </div>
+            <div class="metric-card">
+                <h3>Date Range</h3>
+                <div class="metric-value" id="dateRange" style="font-size: 24px">-</div>
+            </div>
+        </div>
+
+        <div class="status-grid">
+            <div class="status-item">
+                <h4>✅ Delivered</h4>
+                <span class="pct delivered" id="deliveredPct">-</span>
+                <span class="value" id="deliveredCount">-</span>
+            </div>
+            <div class="status-item">
+                <h4>❌ Cancelled</h4>
+                <span class="pct cancelled" id="cancelledPct">-</span>
+                <span class="value" id="cancelledCount">-</span>
+            </div>
+            <div class="status-item">
+                <h4>↩️ Returned</h4>
+                <span class="pct returned" id="returnedPct">-</span>
+                <span class="value" id="returnedCount">-</span>
+            </div>
+            <div class="status-item">
+                <h4>⚠️ Failed</h4>
+                <span class="pct failed" id="failedPct">-</span>
+                <span class="value" id="failedCount">-</span>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-card">
+                <h3>📈 Monthly Order Volume</h3>
+                <div id="trendChart"></div>
+            </div>
+            <div class="chart-card">
+                <h3>📊 Order Status Distribution</h3>
+                <div id="pieChart"></div>
+            </div>
+        </div>
+
+        <div class="charts-grid" style="grid-template-columns: 1fr">
+            <div class="chart-card">
+                <h3>❌ Top Cancellation Reasons</h3>
+                <div id="reasonsChart"></div>
+            </div>
+        </div>
+
+        <script>
+            const summaryData = {{SUMMARY}};
+            const monthlyData = {{MONTHLY}};
+            const reasonsData = {{REASONS}};
+            const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+            function fmt(n) { return n.toLocaleString(); }
+
+            // Summary metrics
+            document.getElementById('totalOrders').textContent = fmt(summaryData.total);
+            document.getElementById('deliveryRate').textContent = summaryData.delivery_rate + '%';
+            document.getElementById('dateRange').textContent = summaryData.date_range;
+
+            document.getElementById('deliveredPct').textContent = summaryData.delivery_rate + '%';
+            document.getElementById('deliveredCount').textContent = `(${fmt(summaryData.delivered)})`;
+            document.getElementById('cancelledPct').textContent = summaryData.cancel_rate + '%';
+            document.getElementById('cancelledCount').textContent = `(${fmt(summaryData.cancelled)})`;
+            document.getElementById('returnedPct').textContent = summaryData.return_rate + '%';
+            document.getElementById('returnedCount').textContent = `(${fmt(summaryData.returned)})`;
+            document.getElementById('failedPct').textContent = summaryData.failed_rate + '%';
+            document.getElementById('failedCount').textContent = `(${fmt(summaryData.failed)})`;
+
+            // Trend chart
+            const labels = monthlyData.map(d => `${monthNames[d.Month]} ${d.Year}`);
+            Plotly.newPlot('trendChart', [{
+                x: labels, y: monthlyData.map(d => d.total_orders),
+                type: 'scatter', mode: 'lines+markers',
+                line: {color: '#00d4aa', width: 3}, marker: {size: 8}
             }], {
                 paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-                font: {color: '#888'}, margin: {t: 20, r: 20, b: 40, l: 200},
-                xaxis: {gridcolor: 'rgba(255,255,255,0.1)'},
-                yaxis: {automargin: true}
+                font: {color: '#888'}, margin: {t: 20, r: 20, b: 60, l: 60},
+                xaxis: {gridcolor: 'rgba(255,255,255,0.1)', tickangle: -45},
+                yaxis: {gridcolor: 'rgba(255,255,255,0.1)'}
             }, {responsive: true});
-        }
-    </script>
-</body>
-</html>
 
+            // Pie chart
+            Plotly.newPlot('pieChart', [{
+                values: [summaryData.delivered, summaryData.cancelled, summaryData.returned, summaryData.failed],
+                labels: ['Delivered', 'Cancelled', 'Returned', 'Failed'],
+                type: 'pie', hole: 0.4,
+                marker: {colors: ['#00d4aa', '#ff6b6b', '#ffa726', '#ab47bc']},
+                textinfo: 'label+percent'
+            }], {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                font: {color: '#888'}, margin: {t: 20, r: 20, b: 20, l: 20},
+                showlegend: false
+            }, {responsive: true});
+
+            // Reasons chart
+            if (reasonsData.length > 0) {
+                Plotly.newPlot('reasonsChart', [{
+                    x: reasonsData.map(d => d.count),
+                    y: reasonsData.map(d => d.reason),
+                    type: 'bar', orientation: 'h',
+                    marker: {color: '#ff6b6b'}
+                }], {
+                    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+                    font: {color: '#888'}, margin: {t: 20, r: 20, b: 40, l: 200},
+                    xaxis: {gridcolor: 'rgba(255,255,255,0.1)'},
+                    yaxis: {automargin: true}
+                }, {responsive: true});
+            }
+        </script>
+    </body>
+</html>

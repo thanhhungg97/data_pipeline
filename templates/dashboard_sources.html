@@ -1,222 +1,223 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-Source Comparison Dashboard</title>
-    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-    <link rel="stylesheet" href="templates/base.css">
-</head>
-<body>
-    {{NAV}}
-    
-    <div class="header">
-        <h1>🏪 Multi-Source Comparison Dashboard</h1>
-        <p>Compare performance across different sales channels</p>
-    </div>
-    
-    <div class="controls">
-        <div class="control-group">
-            <label>Select Month</label>
-            <select id="monthSelector" onchange="updateDashboard()"></select>
-        </div>
-        <div class="control-group">
-            <label>Compare Sources</label>
-            <div class="source-chips" id="sourceChips"></div>
-        </div>
-        <div class="control-group">
-            <label>&nbsp;</label>
-            <button onclick="selectAllSources()">Select All</button>
-        </div>
-    </div>
-    
-    <div class="metrics-grid" id="summaryGrid"></div>
-    
-    <div class="charts-grid">
-        <div class="chart-card">
-            <h3>📈 Orders by Source Over Time</h3>
-            <div id="trendChart"></div>
-        </div>
-        <div class="chart-card">
-            <h3>📊 Source Comparison (Selected Month)</h3>
-            <div id="comparisonChart"></div>
-        </div>
-    </div>
-    
-    <h3 style="padding: 20px 40px 10px; color: #fff;">📋 Detailed Comparison</h3>
-    <table class="comparison-table" id="comparisonTable">
-        <thead><tr><th>Metric</th></tr></thead>
-        <tbody></tbody>
-    </table>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Multi-Source Comparison Dashboard</title>
+        <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+        <link rel="stylesheet" href="templates/base.css" />
+    </head>
+    <body>
+        {{NAV}}
 
-    <script>
-        const metricsData = {{METRICS}};
-        const allSources = {{SOURCES}};
-        let selectedSources = [...allSources];
-        
-        const sourceColors = {
-            'Shopee': '#ee4d2d',
-            'Website': '#4a90a4',
-            'Lazada': '#0f146d',
-            'Tiki': '#1a94ff',
-            'default': '#6c5ce7'
-        };
-        
-        const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const periods = [...new Set(metricsData.map(d => `${d.Year}-${d.Month}`))].sort().reverse();
-        
-        // Populate month selector
-        const selector = document.getElementById('monthSelector');
-        periods.forEach((p, i) => {
-            const [year, month] = p.split('-').map(Number);
-            const opt = document.createElement('option');
-            opt.value = p;
-            opt.textContent = `${monthNames[month]} ${year}`;
-            if (i === 0) opt.selected = true;
-            selector.appendChild(opt);
-        });
-        
-        function renderSourceChips() {
-            const container = document.getElementById('sourceChips');
-            container.innerHTML = '';
-            allSources.forEach(source => {
-                const chip = document.createElement('div');
-                chip.className = `chip ${selectedSources.includes(source) ? 'selected' : ''}`;
-                chip.style.background = sourceColors[source] || sourceColors.default;
-                chip.textContent = source;
-                chip.onclick = () => toggleSource(source);
-                container.appendChild(chip);
+        <div class="header">
+            <h1>🏪 Multi-Source Comparison Dashboard</h1>
+            <p>Compare performance across different sales channels</p>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>Select Month</label>
+                <select id="monthSelector" onchange="updateDashboard()"></select>
+            </div>
+            <div class="control-group">
+                <label>Compare Sources</label>
+                <div class="source-chips" id="sourceChips"></div>
+            </div>
+            <div class="control-group">
+                <label>&nbsp;</label>
+                <button onclick="selectAllSources()">Select All</button>
+            </div>
+        </div>
+
+        <div class="metrics-grid" id="summaryGrid"></div>
+
+        <div class="charts-grid">
+            <div class="chart-card">
+                <h3>📈 Orders by Source Over Time</h3>
+                <div id="trendChart"></div>
+            </div>
+            <div class="chart-card">
+                <h3>📊 Source Comparison (Selected Month)</h3>
+                <div id="comparisonChart"></div>
+            </div>
+        </div>
+
+        <h3 style="padding: 20px 40px 10px; color: #fff">📋 Detailed Comparison</h3>
+        <table class="comparison-table" id="comparisonTable">
+            <thead>
+                <tr><th>Metric</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <script>
+            const metricsData = {{METRICS}};
+            const allSources = {{SOURCES}};
+            let selectedSources = [...allSources];
+
+            const sourceColors = {
+                'Shopee': '#ee4d2d',
+                'Website': '#4a90a4',
+                'Lazada': '#0f146d',
+                'Tiki': '#1a94ff',
+                'default': '#6c5ce7'
+            };
+
+            const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const periods = [...new Set(metricsData.map(d => `${d.Year}-${d.Month}`))].sort().reverse();
+
+            // Populate month selector
+            const selector = document.getElementById('monthSelector');
+            periods.forEach((p, i) => {
+                const [year, month] = p.split('-').map(Number);
+                const opt = document.createElement('option');
+                opt.value = p;
+                opt.textContent = `${monthNames[month]} ${year}`;
+                if (i === 0) opt.selected = true;
+                selector.appendChild(opt);
             });
-        }
-        
-        function toggleSource(source) {
-            if (selectedSources.includes(source)) {
-                if (selectedSources.length > 1) selectedSources = selectedSources.filter(s => s !== source);
-            } else {
-                selectedSources.push(source);
+
+            function renderSourceChips() {
+                const container = document.getElementById('sourceChips');
+                container.innerHTML = '';
+                allSources.forEach(source => {
+                    const chip = document.createElement('div');
+                    chip.className = `chip ${selectedSources.includes(source) ? 'selected' : ''}`;
+                    chip.style.background = sourceColors[source] || sourceColors.default;
+                    chip.textContent = source;
+                    chip.onclick = () => toggleSource(source);
+                    container.appendChild(chip);
+                });
             }
-            renderSourceChips();
-            updateDashboard();
-        }
-        
-        function selectAllSources() {
-            selectedSources = [...allSources];
-            renderSourceChips();
-            updateDashboard();
-        }
-        
-        function getSourceData(source, year, month) {
-            return metricsData.find(d => d.Source === source && d.Year === year && d.Month === month);
-        }
-        
-        function fmt(n) { return n ? n.toLocaleString() : '0'; }
-        
-        function updateDashboard() {
-            const [year, month] = selector.value.split('-').map(Number);
-            const grid = document.getElementById('summaryGrid');
-            grid.innerHTML = '';
-            
-            selectedSources.forEach(source => {
-                const data = getSourceData(source, year, month);
-                const color = sourceColors[source] || sourceColors.default;
-                const card = document.createElement('div');
-                card.className = 'metric-card';
-                card.innerHTML = `
-                    <h3 style="color: ${color}">${source} - ${monthNames[month]} ${year}</h3>
-                    <div style="display: grid; gap: 10px; margin-top: 15px;">
-                        <div style="display: flex; justify-content: space-between;">
-                            <span style="color: #888;">Total Orders</span>
-                            <span style="font-weight: 600;">${data ? fmt(data.total_orders) : '-'}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between;">
-                            <span style="color: #888;">Delivery Rate</span>
-                            <span class="positive" style="font-weight: 600;">${data ? data.delivery_rate + '%' : '-'}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between;">
-                            <span style="color: #888;">Cancel Rate</span>
-                            <span class="negative" style="font-weight: 600;">${data ? data.cancel_rate + '%' : '-'}</span>
-                        </div>
-                    </div>
-                `;
-                grid.appendChild(card);
-            });
-            
-            updateCharts(year, month);
-            updateComparisonTable(year, month);
-        }
-        
-        function updateCharts(year, month) {
-            // Trend chart
-            const traces = selectedSources.map(source => {
-                const sourceData = metricsData.filter(d => d.Source === source)
-                    .sort((a, b) => a.Year !== b.Year ? a.Year - b.Year : a.Month - b.Month).slice(-12);
-                return {
-                    x: sourceData.map(d => `${monthNames[d.Month]} ${d.Year}`),
-                    y: sourceData.map(d => d.total_orders),
-                    type: 'scatter', mode: 'lines+markers', name: source,
-                    line: {color: sourceColors[source] || sourceColors.default, width: 3}
-                };
-            });
-            
-            Plotly.newPlot('trendChart', traces, {
-                paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-                font: {color: '#888'}, margin: {t: 20, r: 20, b: 60, l: 60},
-                xaxis: {gridcolor: 'rgba(255,255,255,0.1)', tickangle: -45},
-                yaxis: {gridcolor: 'rgba(255,255,255,0.1)', title: 'Orders'},
-                legend: {orientation: 'h', y: 1.1}
-            }, {responsive: true});
-            
-            // Comparison chart
-            const metrics = ['Total Orders', 'Delivered', 'Cancelled', 'Returned'];
-            const barTraces = selectedSources.map(source => {
-                const data = getSourceData(source, year, month);
-                return {
-                    x: metrics,
-                    y: data ? [data.total_orders, data.delivered, data.cancelled, data.returned] : [0,0,0,0],
-                    type: 'bar', name: source,
-                    marker: {color: sourceColors[source] || sourceColors.default}
-                };
-            });
-            
-            Plotly.newPlot('comparisonChart', barTraces, {
-                paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-                font: {color: '#888'}, margin: {t: 20, r: 20, b: 40, l: 60},
-                barmode: 'group', legend: {orientation: 'h', y: 1.15},
-                yaxis: {gridcolor: 'rgba(255,255,255,0.1)'}
-            }, {responsive: true});
-        }
-        
-        function updateComparisonTable(year, month) {
-            const table = document.getElementById('comparisonTable');
-            const thead = table.querySelector('thead tr');
-            const tbody = table.querySelector('tbody');
-            
-            thead.innerHTML = '<th>Metric</th>' + selectedSources.map(s => 
-                `<th style="color: ${sourceColors[s] || sourceColors.default}">${s}</th>`
-            ).join('');
-            
-            const sourceData = selectedSources.map(s => getSourceData(s, year, month) || {});
-            const rows = [
-                {label: 'Total Orders', key: 'total_orders', best: 'max'},
-                {label: 'Delivered', key: 'delivered', best: 'max'},
-                {label: 'Delivery Rate', key: 'delivery_rate', best: 'max', suffix: '%'},
-                {label: 'Cancelled', key: 'cancelled', best: 'min'},
-                {label: 'Cancel Rate', key: 'cancel_rate', best: 'min', suffix: '%'},
-                {label: 'Returned', key: 'returned', best: 'min'},
-            ];
-            
-            tbody.innerHTML = rows.map(row => {
-                const values = sourceData.map(d => d[row.key] || 0);
-                const best = row.best === 'max' ? Math.max(...values) : Math.min(...values.filter(v => v > 0));
-                return `<tr><td>${row.label}</td>${values.map(v => 
-                    `<td class="${v === best && v > 0 ? 'best' : ''}">${fmt(v)}${row.suffix || ''}</td>`
-                ).join('')}</tr>`;
-            }).join('');
-        }
-        
-        renderSourceChips();
-        updateDashboard();
-    </script>
-</body>
-</html>
 
+            function toggleSource(source) {
+                if (selectedSources.includes(source)) {
+                    if (selectedSources.length > 1) selectedSources = selectedSources.filter(s => s !== source);
+                } else {
+                    selectedSources.push(source);
+                }
+                renderSourceChips();
+                updateDashboard();
+            }
+
+            function selectAllSources() {
+                selectedSources = [...allSources];
+                renderSourceChips();
+                updateDashboard();
+            }
+
+            function getSourceData(source, year, month) {
+                return metricsData.find(d => d.Source === source && d.Year === year && d.Month === month);
+            }
+
+            function fmt(n) { return n ? n.toLocaleString() : '0'; }
+
+            function updateDashboard() {
+                const [year, month] = selector.value.split('-').map(Number);
+                const grid = document.getElementById('summaryGrid');
+                grid.innerHTML = '';
+
+                selectedSources.forEach(source => {
+                    const data = getSourceData(source, year, month);
+                    const color = sourceColors[source] || sourceColors.default;
+                    const card = document.createElement('div');
+                    card.className = 'metric-card';
+                    card.innerHTML = `
+                        <h3 style="color: ${color}">${source} - ${monthNames[month]} ${year}</h3>
+                        <div style="display: grid; gap: 10px; margin-top: 15px;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="color: #888;">Total Orders</span>
+                                <span style="font-weight: 600;">${data ? fmt(data.total_orders) : '-'}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="color: #888;">Delivery Rate</span>
+                                <span class="positive" style="font-weight: 600;">${data ? data.delivery_rate + '%' : '-'}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="color: #888;">Cancel Rate</span>
+                                <span class="negative" style="font-weight: 600;">${data ? data.cancel_rate + '%' : '-'}</span>
+                            </div>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+
+                updateCharts(year, month);
+                updateComparisonTable(year, month);
+            }
+
+            function updateCharts(year, month) {
+                // Trend chart
+                const traces = selectedSources.map(source => {
+                    const sourceData = metricsData.filter(d => d.Source === source)
+                        .sort((a, b) => a.Year !== b.Year ? a.Year - b.Year : a.Month - b.Month).slice(-12);
+                    return {
+                        x: sourceData.map(d => `${monthNames[d.Month]} ${d.Year}`),
+                        y: sourceData.map(d => d.total_orders),
+                        type: 'scatter', mode: 'lines+markers', name: source,
+                        line: {color: sourceColors[source] || sourceColors.default, width: 3}
+                    };
+                });
+
+                Plotly.newPlot('trendChart', traces, {
+                    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+                    font: {color: '#888'}, margin: {t: 20, r: 20, b: 60, l: 60},
+                    xaxis: {gridcolor: 'rgba(255,255,255,0.1)', tickangle: -45},
+                    yaxis: {gridcolor: 'rgba(255,255,255,0.1)', title: 'Orders'},
+                    legend: {orientation: 'h', y: 1.1}
+                }, {responsive: true});
+
+                // Comparison chart
+                const metrics = ['Total Orders', 'Delivered', 'Cancelled', 'Returned'];
+                const barTraces = selectedSources.map(source => {
+                    const data = getSourceData(source, year, month);
+                    return {
+                        x: metrics,
+                        y: data ? [data.total_orders, data.delivered, data.cancelled, data.returned] : [0,0,0,0],
+                        type: 'bar', name: source,
+                        marker: {color: sourceColors[source] || sourceColors.default}
+                    };
+                });
+
+                Plotly.newPlot('comparisonChart', barTraces, {
+                    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+                    font: {color: '#888'}, margin: {t: 20, r: 20, b: 40, l: 60},
+                    barmode: 'group', legend: {orientation: 'h', y: 1.15},
+                    yaxis: {gridcolor: 'rgba(255,255,255,0.1)'}
+                }, {responsive: true});
+            }
+
+            function updateComparisonTable(year, month) {
+                const table = document.getElementById('comparisonTable');
+                const thead = table.querySelector('thead tr');
+                const tbody = table.querySelector('tbody');
+
+                thead.innerHTML = '<th>Metric</th>' + selectedSources.map(s =>
+                    `<th style="color: ${sourceColors[s] || sourceColors.default}">${s}</th>`
+                ).join('');
+
+                const sourceData = selectedSources.map(s => getSourceData(s, year, month) || {});
+                const rows = [
+                    {label: 'Total Orders', key: 'total_orders', best: 'max'},
+                    {label: 'Delivered', key: 'delivered', best: 'max'},
+                    {label: 'Delivery Rate', key: 'delivery_rate', best: 'max', suffix: '%'},
+                    {label: 'Cancelled', key: 'cancelled', best: 'min'},
+                    {label: 'Cancel Rate', key: 'cancel_rate', best: 'min', suffix: '%'},
+                    {label: 'Returned', key: 'returned', best: 'min'},
+                ];
+
+                tbody.innerHTML = rows.map(row => {
+                    const values = sourceData.map(d => d[row.key] || 0);
+                    const best = row.best === 'max' ? Math.max(...values) : Math.min(...values.filter(v => v > 0));
+                    return `<tr><td>${row.label}</td>${values.map(v =>
+                        `<td class="${v === best && v > 0 ? 'best' : ''}">${fmt(v)}${row.suffix || ''}</td>`
+                    ).join('')}</tr>`;
+                }).join('');
+            }
+
+            renderSourceChips();
+            updateDashboard();
+        </script>
+    </body>
+</html>

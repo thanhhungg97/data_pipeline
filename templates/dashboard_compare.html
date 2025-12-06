@@ -1,264 +1,264 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monthly Comparison Dashboard</title>
-    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-    <link rel="stylesheet" href="templates/base.css">
-</head>
-<body>
-    {{NAV}}
-    
-    <div class="header">
-        <h1>📈 Monthly Comparison Dashboard</h1>
-        <p>Compare current month with previous month and year-over-year</p>
-    </div>
-    
-    <div class="controls">
-        <div class="control-group">
-            <label>Select Source</label>
-            <select id="sourceSelector" onchange="updateDashboard()"></select>
-        </div>
-        <div class="control-group">
-            <label>Select Month</label>
-            <select id="monthSelector" onchange="updateDashboard()"></select>
-        </div>
-    </div>
-    
-    <div class="metrics-grid">
-        <div class="metric-card">
-            <h3>Total Orders</h3>
-            <div class="metric-value" id="totalOrders">-</div>
-            <div class="comparisons">
-                <div class="comparison">
-                    <span class="comparison-label">vs Last Month</span>
-                    <span class="comparison-value" id="totalVsLastMonth">-</span>
-                </div>
-                <div class="comparison">
-                    <span class="comparison-label">vs Last Year</span>
-                    <span class="comparison-value" id="totalVsLastYear">-</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="metric-card">
-            <h3>Delivery Rate</h3>
-            <div class="metric-value" id="deliveryRate">-</div>
-            <div class="comparisons">
-                <div class="comparison">
-                    <span class="comparison-label">vs Last Month</span>
-                    <span class="comparison-value" id="deliveryVsLastMonth">-</span>
-                </div>
-                <div class="comparison">
-                    <span class="comparison-label">vs Last Year</span>
-                    <span class="comparison-value" id="deliveryVsLastYear">-</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="metric-card">
-            <h3>Cancellation Rate</h3>
-            <div class="metric-value" id="cancelRate">-</div>
-            <div class="comparisons">
-                <div class="comparison">
-                    <span class="comparison-label">vs Last Month</span>
-                    <span class="comparison-value" id="cancelVsLastMonth">-</span>
-                </div>
-                <div class="comparison">
-                    <span class="comparison-label">vs Last Year</span>
-                    <span class="comparison-value" id="cancelVsLastYear">-</span>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="status-grid">
-        <div class="status-item">
-            <h4>✅ Delivered</h4>
-            <span class="pct delivered" id="deliveredPct">-</span>
-            <span class="value" id="deliveredCount">-</span>
-        </div>
-        <div class="status-item">
-            <h4>❌ Cancelled</h4>
-            <span class="pct cancelled" id="cancelledPct">-</span>
-            <span class="value" id="cancelledCount">-</span>
-        </div>
-        <div class="status-item">
-            <h4>↩️ Returned</h4>
-            <span class="pct returned" id="returnedPct">-</span>
-            <span class="value" id="returnedCount">-</span>
-        </div>
-        <div class="status-item">
-            <h4>⚠️ Failed Delivery</h4>
-            <span class="pct failed" id="failedPct">-</span>
-            <span class="value" id="failedCount">-</span>
-        </div>
-    </div>
-    
-    <div class="charts-grid">
-        <div class="chart-card">
-            <h3>📈 Orders Trend (12 Months)</h3>
-            <div id="trendChart"></div>
-        </div>
-        <div class="chart-card">
-            <h3>📊 3-Month Comparison</h3>
-            <div id="comparisonChart"></div>
-        </div>
-    </div>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Monthly Comparison Dashboard</title>
+        <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+        <link rel="stylesheet" href="templates/base.css" />
+    </head>
+    <body>
+        {{NAV}}
 
-    <script>
-        const allData = {{DATA}};
-        const allSources = {{SOURCES}};
-        const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        
-        // Populate source selector
-        const sourceSelector = document.getElementById('sourceSelector');
-        const sourceOpt = document.createElement('option');
-        sourceOpt.value = 'All';
-        sourceOpt.textContent = '📊 All Sources';
-        sourceSelector.appendChild(sourceOpt);
-        
-        allSources.forEach(source => {
-            const opt = document.createElement('option');
-            opt.value = source;
-            opt.textContent = source;
-            sourceSelector.appendChild(opt);
-        });
-        
-        function getFilteredData() {
-            const source = sourceSelector.value;
-            if (source === 'All') {
-                return allData.filter(d => d.Source === 'All');
-            }
-            return allData.filter(d => d.Source === source);
-        }
-        
-        function updateMonthSelector() {
-            const data = getFilteredData();
-            data.sort((a, b) => a.Year !== b.Year ? a.Year - b.Year : a.Month - b.Month);
-            
-            const monthSelector = document.getElementById('monthSelector');
-            const currentValue = monthSelector.value;
-            monthSelector.innerHTML = '';
-            
-            [...data].reverse().forEach((d, i) => {
+        <div class="header">
+            <h1>📈 Monthly Comparison Dashboard</h1>
+            <p>Compare current month with previous month and year-over-year</p>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>Select Source</label>
+                <select id="sourceSelector" onchange="updateDashboard()"></select>
+            </div>
+            <div class="control-group">
+                <label>Select Month</label>
+                <select id="monthSelector" onchange="updateDashboard()"></select>
+            </div>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <h3>Total Orders</h3>
+                <div class="metric-value" id="totalOrders">-</div>
+                <div class="comparisons">
+                    <div class="comparison">
+                        <span class="comparison-label">vs Last Month</span>
+                        <span class="comparison-value" id="totalVsLastMonth">-</span>
+                    </div>
+                    <div class="comparison">
+                        <span class="comparison-label">vs Last Year</span>
+                        <span class="comparison-value" id="totalVsLastYear">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <h3>Delivery Rate</h3>
+                <div class="metric-value" id="deliveryRate">-</div>
+                <div class="comparisons">
+                    <div class="comparison">
+                        <span class="comparison-label">vs Last Month</span>
+                        <span class="comparison-value" id="deliveryVsLastMonth">-</span>
+                    </div>
+                    <div class="comparison">
+                        <span class="comparison-label">vs Last Year</span>
+                        <span class="comparison-value" id="deliveryVsLastYear">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <h3>Cancellation Rate</h3>
+                <div class="metric-value" id="cancelRate">-</div>
+                <div class="comparisons">
+                    <div class="comparison">
+                        <span class="comparison-label">vs Last Month</span>
+                        <span class="comparison-value" id="cancelVsLastMonth">-</span>
+                    </div>
+                    <div class="comparison">
+                        <span class="comparison-label">vs Last Year</span>
+                        <span class="comparison-value" id="cancelVsLastYear">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-grid">
+            <div class="status-item">
+                <h4>✅ Delivered</h4>
+                <span class="pct delivered" id="deliveredPct">-</span>
+                <span class="value" id="deliveredCount">-</span>
+            </div>
+            <div class="status-item">
+                <h4>❌ Cancelled</h4>
+                <span class="pct cancelled" id="cancelledPct">-</span>
+                <span class="value" id="cancelledCount">-</span>
+            </div>
+            <div class="status-item">
+                <h4>↩️ Returned</h4>
+                <span class="pct returned" id="returnedPct">-</span>
+                <span class="value" id="returnedCount">-</span>
+            </div>
+            <div class="status-item">
+                <h4>⚠️ Failed Delivery</h4>
+                <span class="pct failed" id="failedPct">-</span>
+                <span class="value" id="failedCount">-</span>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-card">
+                <h3>📈 Orders Trend (12 Months)</h3>
+                <div id="trendChart"></div>
+            </div>
+            <div class="chart-card">
+                <h3>📊 3-Month Comparison</h3>
+                <div id="comparisonChart"></div>
+            </div>
+        </div>
+
+        <script>
+            const allData = {{DATA}};
+            const allSources = {{SOURCES}};
+            const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+            // Populate source selector
+            const sourceSelector = document.getElementById('sourceSelector');
+            const sourceOpt = document.createElement('option');
+            sourceOpt.value = 'All';
+            sourceOpt.textContent = '📊 All Sources';
+            sourceSelector.appendChild(sourceOpt);
+
+            allSources.forEach(source => {
                 const opt = document.createElement('option');
-                opt.value = `${d.Year}-${d.Month}`;
-                opt.textContent = `${monthNames[d.Month]} ${d.Year}`;
-                if (opt.value === currentValue || i === 0) opt.selected = true;
-                monthSelector.appendChild(opt);
+                opt.value = source;
+                opt.textContent = source;
+                sourceSelector.appendChild(opt);
             });
-        }
-        
-        function getMonthData(year, month) {
-            const data = getFilteredData();
-            return data.find(d => d.Year === year && d.Month === month);
-        }
-        
-        function getLastMonth(year, month) {
-            if (month === 1) return { year: year - 1, month: 12 };
-            return { year, month: month - 1 };
-        }
-        
-        function formatNumber(num) { return num ? num.toLocaleString() : '0'; }
-        
-        function formatChange(current, previous, isRateCompare = false) {
-            if (!previous || previous === 0) return '<span class="neutral">N/A</span>';
-            const change = isRateCompare 
-                ? (current - previous).toFixed(1)
-                : (((current - previous) / previous) * 100).toFixed(1);
-            const cls = change > 0 ? (isRateCompare ? 'negative' : 'positive') : change < 0 ? (isRateCompare ? 'positive' : 'negative') : 'neutral';
-            return `<span class="${cls}">${change > 0 ? '↑' : '↓'} ${Math.abs(change)}${isRateCompare ? 'pp' : '%'}</span>`;
-        }
-        
-        function updateDashboard() {
-            updateMonthSelector();
-            
-            const monthSelector = document.getElementById('monthSelector');
-            if (!monthSelector.value) return;
-            
-            const [year, month] = monthSelector.value.split('-').map(Number);
-            const current = getMonthData(year, month);
-            if (!current) return;
-            
-            const lastMonthInfo = getLastMonth(year, month);
-            const lastMonth = getMonthData(lastMonthInfo.year, lastMonthInfo.month);
-            const lastYear = getMonthData(year - 1, month);
-            
-            document.getElementById('totalOrders').textContent = formatNumber(current.total_orders);
-            document.getElementById('deliveryRate').textContent = (current.delivery_rate || 0) + '%';
-            document.getElementById('cancelRate').textContent = (current.cancel_rate || 0) + '%';
-            
-            document.getElementById('totalVsLastMonth').innerHTML = formatChange(current.total_orders, lastMonth?.total_orders);
-            document.getElementById('totalVsLastYear').innerHTML = formatChange(current.total_orders, lastYear?.total_orders);
-            document.getElementById('deliveryVsLastMonth').innerHTML = formatChange(current.delivery_rate, lastMonth?.delivery_rate, true);
-            document.getElementById('deliveryVsLastYear').innerHTML = formatChange(current.delivery_rate, lastYear?.delivery_rate, true);
-            
-            const cancelVsLM = lastMonth ? (current.cancel_rate - lastMonth.cancel_rate).toFixed(1) : null;
-            const cancelVsLY = lastYear ? (current.cancel_rate - lastYear.cancel_rate).toFixed(1) : null;
-            document.getElementById('cancelVsLastMonth').innerHTML = cancelVsLM !== null
-                ? `<span class="${cancelVsLM > 0 ? 'negative' : 'positive'}">${cancelVsLM > 0 ? '↑' : '↓'} ${Math.abs(cancelVsLM)}pp</span>`
-                : '<span class="neutral">N/A</span>';
-            document.getElementById('cancelVsLastYear').innerHTML = cancelVsLY !== null
-                ? `<span class="${cancelVsLY > 0 ? 'negative' : 'positive'}">${cancelVsLY > 0 ? '↑' : '↓'} ${Math.abs(cancelVsLY)}pp</span>`
-                : '<span class="neutral">N/A</span>';
-            
-            document.getElementById('deliveredPct').textContent = `${current.delivery_rate || 0}%`;
-            document.getElementById('deliveredCount').textContent = `(${formatNumber(current.delivered)})`;
-            document.getElementById('cancelledPct').textContent = `${current.cancel_rate || 0}%`;
-            document.getElementById('cancelledCount').textContent = `(${formatNumber(current.cancelled)})`;
-            const returnRate = current.total_orders ? (current.returned/current.total_orders*100).toFixed(1) : 0;
-            document.getElementById('returnedPct').textContent = `${returnRate}%`;
-            document.getElementById('returnedCount').textContent = `(${formatNumber(current.returned)})`;
-            const failedRate = current.total_orders ? (current.failed/current.total_orders*100).toFixed(1) : 0;
-            document.getElementById('failedPct').textContent = `${failedRate}%`;
-            document.getElementById('failedCount').textContent = `(${formatNumber(current.failed)})`;
-            
-            updateTrendChart(year, month);
-            updateComparisonChart(year, month, lastMonth, lastYear);
-        }
-        
-        function updateTrendChart(currentYear, currentMonth) {
-            const data = getFilteredData();
-            data.sort((a, b) => a.Year !== b.Year ? a.Year - b.Year : a.Month - b.Month);
-            
-            const currentIdx = data.findIndex(d => d.Year === currentYear && d.Month === currentMonth);
-            const startIdx = Math.max(0, currentIdx - 11);
-            const trendData = data.slice(startIdx, currentIdx + 1);
-            const labels = trendData.map(d => `${monthNames[d.Month]} ${d.Year}`);
-            
-            Plotly.newPlot('trendChart', [
-                {x: labels, y: trendData.map(d => d.total_orders), type: 'scatter', mode: 'lines+markers', name: 'Total', line: {color: '#00d4aa', width: 3}},
-                {x: labels, y: trendData.map(d => d.delivered), type: 'scatter', mode: 'lines+markers', name: 'Delivered', line: {color: '#4ecdc4', width: 2}}
-            ], {
-                paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-                font: {color: '#888'}, margin: {t: 20, r: 20, b: 60, l: 60},
-                xaxis: {gridcolor: 'rgba(255,255,255,0.1)', tickangle: -45},
-                yaxis: {gridcolor: 'rgba(255,255,255,0.1)'},
-                legend: {orientation: 'h', y: 1.1}
-            }, {responsive: true});
-        }
-        
-        function updateComparisonChart(year, month, lastMonth, lastYear) {
-            const current = getMonthData(year, month);
-            const cats = ['Total', 'Delivered', 'Cancelled', 'Returned'];
-            const curVals = [current.total_orders, current.delivered, current.cancelled, current.returned];
-            const lmVals = lastMonth ? [lastMonth.total_orders, lastMonth.delivered, lastMonth.cancelled, lastMonth.returned] : [0,0,0,0];
-            const lyVals = lastYear ? [lastYear.total_orders, lastYear.delivered, lastYear.cancelled, lastYear.returned] : [0,0,0,0];
-            
-            Plotly.newPlot('comparisonChart', [
-                {x: cats, y: curVals, type: 'bar', name: `${monthNames[month]} ${year}`, marker: {color: '#00d4aa'}},
-                {x: cats, y: lmVals, type: 'bar', name: lastMonth ? `${monthNames[lastMonth.Month]} ${lastMonth.Year}` : 'Last Month', marker: {color: '#4a90a4'}},
-                {x: cats, y: lyVals, type: 'bar', name: `${monthNames[month]} ${year-1}`, marker: {color: '#8b5cf6'}}
-            ], {
-                paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-                font: {color: '#888'}, margin: {t: 20, r: 20, b: 40, l: 60},
-                barmode: 'group', legend: {orientation: 'h', y: 1.15}
-            }, {responsive: true});
-        }
-        
-        updateDashboard();
-    </script>
-</body>
+
+            function getFilteredData() {
+                const source = sourceSelector.value;
+                if (source === 'All') {
+                    return allData.filter(d => d.Source === 'All');
+                }
+                return allData.filter(d => d.Source === source);
+            }
+
+            function updateMonthSelector() {
+                const data = getFilteredData();
+                data.sort((a, b) => a.Year !== b.Year ? a.Year - b.Year : a.Month - b.Month);
+
+                const monthSelector = document.getElementById('monthSelector');
+                const currentValue = monthSelector.value;
+                monthSelector.innerHTML = '';
+
+                [...data].reverse().forEach((d, i) => {
+                    const opt = document.createElement('option');
+                    opt.value = `${d.Year}-${d.Month}`;
+                    opt.textContent = `${monthNames[d.Month]} ${d.Year}`;
+                    if (opt.value === currentValue || i === 0) opt.selected = true;
+                    monthSelector.appendChild(opt);
+                });
+            }
+
+            function getMonthData(year, month) {
+                const data = getFilteredData();
+                return data.find(d => d.Year === year && d.Month === month);
+            }
+
+            function getLastMonth(year, month) {
+                if (month === 1) return { year: year - 1, month: 12 };
+                return { year, month: month - 1 };
+            }
+
+            function formatNumber(num) { return num ? num.toLocaleString() : '0'; }
+
+            function formatChange(current, previous, isRateCompare = false) {
+                if (!previous || previous === 0) return '<span class="neutral">N/A</span>';
+                const change = isRateCompare
+                    ? (current - previous).toFixed(1)
+                    : (((current - previous) / previous) * 100).toFixed(1);
+                const cls = change > 0 ? (isRateCompare ? 'negative' : 'positive') : change < 0 ? (isRateCompare ? 'positive' : 'negative') : 'neutral';
+                return `<span class="${cls}">${change > 0 ? '↑' : '↓'} ${Math.abs(change)}${isRateCompare ? 'pp' : '%'}</span>`;
+            }
+
+            function updateDashboard() {
+                updateMonthSelector();
+
+                const monthSelector = document.getElementById('monthSelector');
+                if (!monthSelector.value) return;
+
+                const [year, month] = monthSelector.value.split('-').map(Number);
+                const current = getMonthData(year, month);
+                if (!current) return;
+
+                const lastMonthInfo = getLastMonth(year, month);
+                const lastMonth = getMonthData(lastMonthInfo.year, lastMonthInfo.month);
+                const lastYear = getMonthData(year - 1, month);
+
+                document.getElementById('totalOrders').textContent = formatNumber(current.total_orders);
+                document.getElementById('deliveryRate').textContent = (current.delivery_rate || 0) + '%';
+                document.getElementById('cancelRate').textContent = (current.cancel_rate || 0) + '%';
+
+                document.getElementById('totalVsLastMonth').innerHTML = formatChange(current.total_orders, lastMonth?.total_orders);
+                document.getElementById('totalVsLastYear').innerHTML = formatChange(current.total_orders, lastYear?.total_orders);
+                document.getElementById('deliveryVsLastMonth').innerHTML = formatChange(current.delivery_rate, lastMonth?.delivery_rate, true);
+                document.getElementById('deliveryVsLastYear').innerHTML = formatChange(current.delivery_rate, lastYear?.delivery_rate, true);
+
+                const cancelVsLM = lastMonth ? (current.cancel_rate - lastMonth.cancel_rate).toFixed(1) : null;
+                const cancelVsLY = lastYear ? (current.cancel_rate - lastYear.cancel_rate).toFixed(1) : null;
+                document.getElementById('cancelVsLastMonth').innerHTML = cancelVsLM !== null
+                    ? `<span class="${cancelVsLM > 0 ? 'negative' : 'positive'}">${cancelVsLM > 0 ? '↑' : '↓'} ${Math.abs(cancelVsLM)}pp</span>`
+                    : '<span class="neutral">N/A</span>';
+                document.getElementById('cancelVsLastYear').innerHTML = cancelVsLY !== null
+                    ? `<span class="${cancelVsLY > 0 ? 'negative' : 'positive'}">${cancelVsLY > 0 ? '↑' : '↓'} ${Math.abs(cancelVsLY)}pp</span>`
+                    : '<span class="neutral">N/A</span>';
+
+                document.getElementById('deliveredPct').textContent = `${current.delivery_rate || 0}%`;
+                document.getElementById('deliveredCount').textContent = `(${formatNumber(current.delivered)})`;
+                document.getElementById('cancelledPct').textContent = `${current.cancel_rate || 0}%`;
+                document.getElementById('cancelledCount').textContent = `(${formatNumber(current.cancelled)})`;
+                const returnRate = current.total_orders ? (current.returned/current.total_orders*100).toFixed(1) : 0;
+                document.getElementById('returnedPct').textContent = `${returnRate}%`;
+                document.getElementById('returnedCount').textContent = `(${formatNumber(current.returned)})`;
+                const failedRate = current.total_orders ? (current.failed/current.total_orders*100).toFixed(1) : 0;
+                document.getElementById('failedPct').textContent = `${failedRate}%`;
+                document.getElementById('failedCount').textContent = `(${formatNumber(current.failed)})`;
+
+                updateTrendChart(year, month);
+                updateComparisonChart(year, month, lastMonth, lastYear);
+            }
+
+            function updateTrendChart(currentYear, currentMonth) {
+                const data = getFilteredData();
+                data.sort((a, b) => a.Year !== b.Year ? a.Year - b.Year : a.Month - b.Month);
+
+                const currentIdx = data.findIndex(d => d.Year === currentYear && d.Month === currentMonth);
+                const startIdx = Math.max(0, currentIdx - 11);
+                const trendData = data.slice(startIdx, currentIdx + 1);
+                const labels = trendData.map(d => `${monthNames[d.Month]} ${d.Year}`);
+
+                Plotly.newPlot('trendChart', [
+                    {x: labels, y: trendData.map(d => d.total_orders), type: 'scatter', mode: 'lines+markers', name: 'Total', line: {color: '#00d4aa', width: 3}},
+                    {x: labels, y: trendData.map(d => d.delivered), type: 'scatter', mode: 'lines+markers', name: 'Delivered', line: {color: '#4ecdc4', width: 2}}
+                ], {
+                    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+                    font: {color: '#888'}, margin: {t: 20, r: 20, b: 60, l: 60},
+                    xaxis: {gridcolor: 'rgba(255,255,255,0.1)', tickangle: -45},
+                    yaxis: {gridcolor: 'rgba(255,255,255,0.1)'},
+                    legend: {orientation: 'h', y: 1.1}
+                }, {responsive: true});
+            }
+
+            function updateComparisonChart(year, month, lastMonth, lastYear) {
+                const current = getMonthData(year, month);
+                const cats = ['Total', 'Delivered', 'Cancelled', 'Returned'];
+                const curVals = [current.total_orders, current.delivered, current.cancelled, current.returned];
+                const lmVals = lastMonth ? [lastMonth.total_orders, lastMonth.delivered, lastMonth.cancelled, lastMonth.returned] : [0,0,0,0];
+                const lyVals = lastYear ? [lastYear.total_orders, lastYear.delivered, lastYear.cancelled, lastYear.returned] : [0,0,0,0];
+
+                Plotly.newPlot('comparisonChart', [
+                    {x: cats, y: curVals, type: 'bar', name: `${monthNames[month]} ${year}`, marker: {color: '#00d4aa'}},
+                    {x: cats, y: lmVals, type: 'bar', name: lastMonth ? `${monthNames[lastMonth.Month]} ${lastMonth.Year}` : 'Last Month', marker: {color: '#4a90a4'}},
+                    {x: cats, y: lyVals, type: 'bar', name: `${monthNames[month]} ${year-1}`, marker: {color: '#8b5cf6'}}
+                ], {
+                    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+                    font: {color: '#888'}, margin: {t: 20, r: 20, b: 40, l: 60},
+                    barmode: 'group', legend: {orientation: 'h', y: 1.15}
+                }, {responsive: true});
+            }
+
+            updateDashboard();
+        </script>
+    </body>
 </html>
