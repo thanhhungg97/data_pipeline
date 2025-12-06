@@ -45,7 +45,7 @@ def run_multi_source_etl(
     progress_callback=None,
     source_callback=None,
 ):
-    """Run ETL for multiple sources.
+    """Run ETL for multiple sources with error handling.
 
     Args:
         sources: List of {"name": str, "path": str}
@@ -53,7 +53,12 @@ def run_multi_source_etl(
         config_path: Path to config.yaml
         progress_callback: Callback for log messages
         source_callback: Callback for source status updates (name, status)
+
+    Returns:
+        Dict with results including errors
     """
+    import traceback
+
     import polars as pl
 
     def log(msg: str):
@@ -67,24 +72,45 @@ def run_multi_source_etl(
     output_path = Path(output_dir)
     all_dataframes = []
 
+    # Track results
+    results = {
+        "successful": [],
+        "failed": [],
+        "errors": {},
+        "total_rows": 0,
+    }
+
     # Verify config exists
     if not os.path.exists(config_path):
         log(f"⚠️ Config not found at {config_path}, using defaults")
 
+    log(f"🚀 Starting pipeline for {len(sources)} source(s)...")
+
     # Process each source
-    for source in sources:
+    for i, source in enumerate(sources, 1):
         name = source["name"]
         path = source["path"]
 
         update_source(name, "processing")
         log(f"\n{'=' * 50}")
-        log(f"📂 Processing: {name}")
+        log(f"📂 [{i}/{len(sources)}] Processing: {name}")
         log(f"   Path: {path}")
 
         try:
+            # Validate path
+            if not os.path.isdir(path):
+                raise FileNotFoundError(f"Directory not found: {path}")
+
+            # Check for Excel files
+            excel_files = list(Path(path).glob("*.xlsx")) + list(Path(path).glob("*.xls"))
+            if not excel_files:
+                raise FileNotFoundError(f"No Excel files found in: {path}")
+
+            log(f"   Found {len(excel_files)} Excel file(s)")
+
             # Run ETL for this source
             source_output = output_path / name.lower().replace(" ", "_")
-            result = run_simple_etl(
+            run_simple_etl(
                 input_dir=path,
                 output_dir=str(source_output),
                 config_path=config_path,
@@ -97,13 +123,35 @@ def run_multi_source_etl(
                 df = pl.concat([pl.read_parquet(f) for f in parquet_files])
                 df = df.with_columns(pl.lit(name).alias("Source"))
                 all_dataframes.append(df)
+                rows = len(df)
+            else:
+                rows = 0
 
             update_source(name, "done")
-            log(f"✅ {name}: {result.get('total_rows', 0):,} rows processed")
+            log(f"✅ {name}: {rows:,} rows processed successfully")
+
+            results["successful"].append(name)
+            results["total_rows"] += rows
+
+        except FileNotFoundError as e:
+            update_source(name, "error")
+            error_msg = str(e)
+            log(f"❌ {name}: {error_msg}")
+            results["failed"].append(name)
+            results["errors"][name] = {"type": "FileNotFound", "message": error_msg}
 
         except Exception as e:
             update_source(name, "error")
-            log(f"❌ {name}: Error - {str(e)}")
+            error_msg = str(e)
+            error_trace = traceback.format_exc()
+            log(f"❌ {name}: Error - {error_msg}")
+            log(f"   Details: {error_trace.split(chr(10))[-2]}")
+            results["failed"].append(name)
+            results["errors"][name] = {
+                "type": type(e).__name__,
+                "message": error_msg,
+                "traceback": error_trace,
+            }
 
     # Combine all sources
     if all_dataframes:
@@ -132,9 +180,27 @@ def run_multi_source_etl(
                 part_path.parent.mkdir(parents=True, exist_ok=True)
                 partition.write_parquet(part_path)
 
-        log(f"✅ Combined {len(combined):,} total rows from {len(sources)} sources")
+        log(f"✅ Combined {len(combined):,} total rows from {len(results['successful'])} sources")
 
-    return {"total_sources": len(sources), "output_dir": str(output_path)}
+    # Print summary
+    log(f"\n{'=' * 50}")
+    log("📊 PIPELINE SUMMARY")
+    log(f"{'=' * 50}")
+    log(f"   ✅ Successful: {len(results['successful'])} source(s)")
+    for name in results["successful"]:
+        log(f"      • {name}")
+
+    if results["failed"]:
+        log(f"   ❌ Failed: {len(results['failed'])} source(s)")
+        for name in results["failed"]:
+            error = results["errors"].get(name, {})
+            log(f"      • {name}: {error.get('message', 'Unknown error')}")
+
+    log(f"   📁 Total rows: {results['total_rows']:,}")
+    log(f"   📂 Output: {output_path}")
+
+    results["output_dir"] = str(output_path)
+    return results
 
 
 # ============================================================
@@ -662,7 +728,7 @@ class DataPipelineApp:
                 config_path = resource_path("config.yaml")
 
                 # Run multi-source ETL
-                run_multi_source_etl(
+                results = run_multi_source_etl(
                     sources=sources,
                     output_dir=self.output_var.get(),
                     config_path=config_path,
@@ -670,28 +736,81 @@ class DataPipelineApp:
                     source_callback=self.update_source_status,
                 )
 
-                # Generate dashboard
-                self.log("\n📊 Generating dashboard...")
+                # Check if any sources succeeded
+                if results["successful"]:
+                    # Generate dashboard
+                    self.log("\n📊 Generating dashboard...")
 
-                # Export data.json
-                export_data_json(self.output_var.get())
+                    # Export data.json
+                    try:
+                        export_data_json(self.output_var.get())
+                    except Exception as e:
+                        self.log(f"⚠️ Dashboard export warning: {str(e)}")
 
-                # Deploy React dashboard
-                dashboard_html = deploy_react_dashboard(self.output_var.get())
-                if dashboard_html:
-                    self.dashboard_path = dashboard_html
-                    self.log(f"✅ Dashboard ready: {dashboard_html}")
-                else:
-                    # Fallback - just show data location
-                    self.dashboard_path = None
-                    self.log("⚠️ React dashboard not bundled, data exported to JSON")
+                    # Deploy React dashboard
+                    try:
+                        dashboard_html = deploy_react_dashboard(self.output_var.get())
+                        if dashboard_html:
+                            self.dashboard_path = dashboard_html
+                            self.log(f"✅ Dashboard ready: {dashboard_html}")
+                        else:
+                            self.dashboard_path = None
+                            self.log("⚠️ React dashboard not bundled, data exported to JSON")
+                    except Exception as e:
+                        self.dashboard_path = None
+                        self.log(f"⚠️ Dashboard deploy warning: {str(e)}")
 
-                # Show dashboard button
-                self.root.after(0, lambda: self.dashboard_btn.pack(pady=10))
+                    # Show dashboard button
+                    self.root.after(0, lambda: self.dashboard_btn.pack(pady=10))
 
-            except Exception as e:
-                self.log(f"\n❌ Error: {str(e)}")
-                messagebox.showerror("Error", str(e))
+                # Show error dialog if some sources failed
+                if results["failed"]:
+                    failed_count = len(results["failed"])
+                    success_count = len(results["successful"])
+
+                    if success_count > 0:
+                        # Partial success
+                        self.root.after(
+                            0,
+                            lambda: messagebox.showwarning(
+                                "Partial Success",
+                                f"Pipeline completed with errors:\n\n"
+                                f"✅ Successful: {success_count} source(s)\n"
+                                f"❌ Failed: {failed_count} source(s)\n\n"
+                                f"Failed sources:\n"
+                                + "\n".join(
+                                    f"• {name}: {results['errors'][name]['message']}"
+                                    for name in results["failed"]
+                                ),
+                            ),
+                        )
+                    else:
+                        # All failed
+                        self.root.after(
+                            0,
+                            lambda: messagebox.showerror(
+                                "Pipeline Failed",
+                                f"All {failed_count} source(s) failed:\n\n"
+                                + "\n".join(
+                                    f"• {name}: {results['errors'][name]['message']}"
+                                    for name in results["failed"]
+                                ),
+                            ),
+                        )
+
+            except Exception as ex:
+                import traceback
+
+                error_trace = traceback.format_exc()
+                error_msg = str(ex)
+                self.log(f"\n❌ Critical Error: {error_msg}")
+                self.log(f"   {error_trace}")
+                self.root.after(
+                    0,
+                    lambda msg=error_msg: messagebox.showerror(
+                        "Critical Error", f"Pipeline crashed:\n\n{msg}"
+                    ),
+                )
             finally:
                 self.root.after(
                     0,
