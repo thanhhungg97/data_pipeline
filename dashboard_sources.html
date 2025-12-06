@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Source Comparison Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+        }
+        .header {
+            background: rgba(255,255,255,0.05);
+            padding: 20px 40px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .header h1 { font-size: 28px; font-weight: 600; color: #fff; }
+        .header p { color: #888; margin-top: 5px; }
+        
+        .controls {
+            padding: 20px 40px;
+            display: flex;
+            gap: 20px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+            background: rgba(255,255,255,0.02);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .control-group { display: flex; flex-direction: column; gap: 5px; }
+        .control-group label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+        select, button {
+            padding: 10px 20px;
+            font-size: 14px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            cursor: pointer;
+        }
+        select:hover, button:hover { border-color: #00d4aa; }
+        button.active { background: #00d4aa; border-color: #00d4aa; }
+        
+        .source-chips {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .chip {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+        .chip.selected { border-color: #fff; }
+        .chip-shopee { background: #ee4d2d; }
+        .chip-website { background: #4a90a4; }
+        .chip-lazada { background: #0f146d; }
+        .chip-default { background: #6c5ce7; }
+        
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px 40px;
+        }
+        .source-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .source-card h3 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .source-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .metric-row:last-child { border-bottom: none; }
+        .metric-label { color: #888; }
+        .metric-value { font-weight: 600; font-size: 18px; }
+        .positive { color: #00d4aa; }
+        .negative { color: #ff6b6b; }
+        
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            padding: 20px 40px;
+        }
+        .chart-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .chart-card h3 { margin-bottom: 15px; color: #fff; }
+        
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 40px;
+            max-width: calc(100% - 80px);
+        }
+        .comparison-table th, .comparison-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .comparison-table th {
+            background: rgba(255,255,255,0.05);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 1px;
+            color: #888;
+        }
+        .comparison-table tr:hover { background: rgba(255,255,255,0.02); }
+        .best { color: #00d4aa; font-weight: 600; }
+        .worst { color: #ff6b6b; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Multi-Source Comparison Dashboard</h1>
+        <p>Compare performance across different sales channels</p>
+    </div>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label>Select Month</label>
+            <select id="monthSelector" onchange="updateDashboard()"></select>
+        </div>
+        <div class="control-group">
+            <label>Compare Sources</label>
+            <div class="source-chips" id="sourceChips"></div>
+        </div>
+        <div class="control-group">
+            <label>&nbsp;</label>
+            <button onclick="selectAllSources()">Select All</button>
+        </div>
+    </div>
+    
+    <div class="summary-grid" id="summaryGrid"></div>
+    
+    <div class="charts-grid">
+        <div class="chart-card">
+            <h3>📈 Orders by Source Over Time</h3>
+            <div id="trendChart"></div>
+        </div>
+        <div class="chart-card">
+            <h3>📊 Source Comparison (Selected Month)</h3>
+            <div id="comparisonChart"></div>
+        </div>
+    </div>
+    
+    <h3 style="padding: 20px 40px 10px; color: #fff;">📋 Detailed Comparison</h3>
+    <table class="comparison-table" id="comparisonTable">
+        <thead>
+            <tr>
+                <th>Metric</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        const metricsData = [{"Source": "Shopee", "Year": 2024, "Month": 1, "total_orders": 13113, "delivered": 8589, "cancelled": 3762, "returned": 369, "failed": 393, "delivery_rate": 65.5, "cancel_rate": 28.7}, {"Source": "Shopee", "Year": 2024, "Month": 2, "total_orders": 8982, "delivered": 6063, "cancelled": 2343, "returned": 255, "failed": 321, "delivery_rate": 67.5, "cancel_rate": 26.1}, {"Source": "Shopee", "Year": 2024, "Month": 3, "total_orders": 17769, "delivered": 11190, "cancelled": 5403, "returned": 789, "failed": 387, "delivery_rate": 63.0, "cancel_rate": 30.4}, {"Source": "Shopee", "Year": 2024, "Month": 4, "total_orders": 20310, "delivered": 12669, "cancelled": 6012, "returned": 1095, "failed": 534, "delivery_rate": 62.4, "cancel_rate": 29.6}, {"Source": "Shopee", "Year": 2024, "Month": 5, "total_orders": 41724, "delivered": 26445, "cancelled": 12075, "returned": 2253, "failed": 951, "delivery_rate": 63.4, "cancel_rate": 28.9}, {"Source": "Shopee", "Year": 2024, "Month": 6, "total_orders": 35778, "delivered": 22113, "cancelled": 10392, "returned": 2412, "failed": 861, "delivery_rate": 61.8, "cancel_rate": 29.0}, {"Source": "Shopee", "Year": 2024, "Month": 7, "total_orders": 39099, "delivered": 24759, "cancelled": 10575, "returned": 2703, "failed": 1062, "delivery_rate": 63.3, "cancel_rate": 27.0}, {"Source": "Shopee", "Year": 2024, "Month": 8, "total_orders": 43050, "delivered": 29835, "cancelled": 11730, "returned": 492, "failed": 993, "delivery_rate": 69.3, "cancel_rate": 27.2}, {"Source": "Shopee", "Year": 2024, "Month": 9, "total_orders": 49839, "delivered": 33615, "cancelled": 14508, "returned": 615, "failed": 1101, "delivery_rate": 67.4, "cancel_rate": 29.1}, {"Source": "Shopee", "Year": 2024, "Month": 10, "total_orders": 36492, "delivered": 23346, "cancelled": 9822, "returned": 2460, "failed": 864, "delivery_rate": 64.0, "cancel_rate": 26.9}, {"Source": "Shopee", "Year": 2024, "Month": 11, "total_orders": 46335, "delivered": 28347, "cancelled": 12789, "returned": 5139, "failed": 60, "delivery_rate": 61.2, "cancel_rate": 27.6}, {"Source": "Shopee", "Year": 2024, "Month": 12, "total_orders": 33330, "delivered": 20664, "cancelled": 9207, "returned": 3408, "failed": 51, "delivery_rate": 62.0, "cancel_rate": 27.6}, {"Source": "Shopee", "Year": 2025, "Month": 1, "total_orders": 24768, "delivered": 15840, "cancelled": 6813, "returned": 1575, "failed": 540, "delivery_rate": 64.0, "cancel_rate": 27.5}, {"Source": "Shopee", "Year": 2025, "Month": 2, "total_orders": 22134, "delivered": 14358, "cancelled": 6111, "returned": 1170, "failed": 495, "delivery_rate": 64.9, "cancel_rate": 27.6}, {"Source": "Shopee", "Year": 2025, "Month": 3, "total_orders": 26136, "delivered": 16833, "cancelled": 7401, "returned": 1500, "failed": 402, "delivery_rate": 64.4, "cancel_rate": 28.3}, {"Source": "Shopee", "Year": 2025, "Month": 4, "total_orders": 28452, "delivered": 18222, "cancelled": 7875, "returned": 1773, "failed": 582, "delivery_rate": 64.0, "cancel_rate": 27.7}, {"Source": "Shopee", "Year": 2025, "Month": 5, "total_orders": 43878, "delivered": 27624, "cancelled": 12798, "returned": 2556, "failed": 900, "delivery_rate": 63.0, "cancel_rate": 29.2}, {"Source": "Shopee", "Year": 2025, "Month": 6, "total_orders": 56331, "delivered": 35928, "cancelled": 15147, "returned": 4137, "failed": 1119, "delivery_rate": 63.8, "cancel_rate": 26.9}, {"Source": "Shopee", "Year": 2025, "Month": 7, "total_orders": 53094, "delivered": 34584, "cancelled": 13338, "returned": 4227, "failed": 945, "delivery_rate": 65.1, "cancel_rate": 25.1}, {"Source": "Shopee", "Year": 2025, "Month": 8, "total_orders": 44424, "delivered": 29082, "cancelled": 11139, "returned": 3321, "failed": 882, "delivery_rate": 65.5, "cancel_rate": 25.1}, {"Source": "Shopee", "Year": 2025, "Month": 9, "total_orders": 43143, "delivered": 26472, "cancelled": 12096, "returned": 3783, "failed": 792, "delivery_rate": 61.4, "cancel_rate": 28.0}, {"Source": "Shopee", "Year": 2025, "Month": 10, "total_orders": 45024, "delivered": 27681, "cancelled": 12852, "returned": 3669, "failed": 822, "delivery_rate": 61.5, "cancel_rate": 28.5}, {"Source": "Shopee", "Year": 2025, "Month": 11, "total_orders": 66447, "delivered": 38943, "cancelled": 19590, "returned": 4437, "failed": 894, "delivery_rate": 58.6, "cancel_rate": 29.5}];
+        const allSources = ["Shopee"];
+        let selectedSources = [...allSources];
+        
+        const sourceColors = {
+            'Shopee': '#ee4d2d',
+            'Website': '#4a90a4',
+            'Lazada': '#0f146d',
+            'Tiki': '#1a94ff',
+            'default': '#6c5ce7'
+        };
+        
+        const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        
+        // Get unique year-month combinations
+        const periods = [...new Set(metricsData.map(d => `${d.Year}-${d.Month}`))].sort().reverse();
+        
+        // Populate month selector
+        const selector = document.getElementById('monthSelector');
+        periods.forEach((p, i) => {
+            const [year, month] = p.split('-').map(Number);
+            const opt = document.createElement('option');
+            opt.value = p;
+            opt.textContent = `${monthNames[month]} ${year}`;
+            if (i === 0) opt.selected = true;
+            selector.appendChild(opt);
+        });
+        
+        // Populate source chips
+        function renderSourceChips() {
+            const container = document.getElementById('sourceChips');
+            container.innerHTML = '';
+            allSources.forEach(source => {
+                const chip = document.createElement('div');
+                const colorClass = sourceColors[source] ? `chip-${source.toLowerCase()}` : 'chip-default';
+                chip.className = `chip ${colorClass} ${selectedSources.includes(source) ? 'selected' : ''}`;
+                chip.style.background = sourceColors[source] || sourceColors.default;
+                chip.textContent = source;
+                chip.onclick = () => toggleSource(source);
+                container.appendChild(chip);
+            });
+        }
+        
+        function toggleSource(source) {
+            if (selectedSources.includes(source)) {
+                if (selectedSources.length > 1) {
+                    selectedSources = selectedSources.filter(s => s !== source);
+                }
+            } else {
+                selectedSources.push(source);
+            }
+            renderSourceChips();
+            updateDashboard();
+        }
+        
+        function selectAllSources() {
+            selectedSources = [...allSources];
+            renderSourceChips();
+            updateDashboard();
+        }
+        
+        function getSourceData(source, year, month) {
+            return metricsData.find(d => d.Source === source && d.Year === year && d.Month === month);
+        }
+        
+        function fmt(n) { return n ? n.toLocaleString() : '0'; }
+        
+        function updateDashboard() {
+            const [year, month] = selector.value.split('-').map(Number);
+            
+            // Update summary cards
+            const grid = document.getElementById('summaryGrid');
+            grid.innerHTML = '';
+            
+            selectedSources.forEach(source => {
+                const data = getSourceData(source, year, month);
+                const color = sourceColors[source] || sourceColors.default;
+                
+                const card = document.createElement('div');
+                card.className = 'source-card';
+                card.innerHTML = `
+                    <h3>
+                        <span class="source-badge" style="background: ${color}">${source}</span>
+                        ${monthNames[month]} ${year}
+                    </h3>
+                    <div class="metric-row">
+                        <span class="metric-label">Total Orders</span>
+                        <span class="metric-value">${data ? fmt(data.total_orders) : '-'}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Delivered</span>
+                        <span class="metric-value positive">${data ? data.delivery_rate + '%' : '-'}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Cancelled</span>
+                        <span class="metric-value negative">${data ? data.cancel_rate + '%' : '-'}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Returned</span>
+                        <span class="metric-value">${data ? fmt(data.returned) : '-'}</span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            
+            updateCharts(year, month);
+            updateComparisonTable(year, month);
+        }
+        
+        function updateCharts(year, month) {
+            // Trend chart - last 6 months for each selected source
+            const traces = selectedSources.map(source => {
+                const sourceData = metricsData
+                    .filter(d => d.Source === source)
+                    .sort((a, b) => a.Year !== b.Year ? a.Year - b.Year : a.Month - b.Month)
+                    .slice(-12);
+                
+                return {
+                    x: sourceData.map(d => `${monthNames[d.Month]} ${d.Year}`),
+                    y: sourceData.map(d => d.total_orders),
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: source,
+                    line: { color: sourceColors[source] || sourceColors.default, width: 3 },
+                    marker: { size: 8 }
+                };
+            });
+            
+            Plotly.newPlot('trendChart', traces, {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#888' },
+                margin: { t: 20, r: 20, b: 60, l: 60 },
+                xaxis: { gridcolor: 'rgba(255,255,255,0.1)', tickangle: -45 },
+                yaxis: { gridcolor: 'rgba(255,255,255,0.1)', title: 'Orders' },
+                legend: { orientation: 'h', y: 1.1 },
+                showlegend: true
+            }, {responsive: true});
+            
+            // Comparison bar chart
+            const metrics = ['Total Orders', 'Delivered', 'Cancelled', 'Returned'];
+            const barTraces = selectedSources.map(source => {
+                const data = getSourceData(source, year, month);
+                return {
+                    x: metrics,
+                    y: data ? [data.total_orders, data.delivered, data.cancelled, data.returned] : [0,0,0,0],
+                    type: 'bar',
+                    name: source,
+                    marker: { color: sourceColors[source] || sourceColors.default }
+                };
+            });
+            
+            Plotly.newPlot('comparisonChart', barTraces, {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#888' },
+                margin: { t: 20, r: 20, b: 40, l: 60 },
+                barmode: 'group',
+                legend: { orientation: 'h', y: 1.1 },
+                yaxis: { gridcolor: 'rgba(255,255,255,0.1)' }
+            }, {responsive: true});
+        }
+        
+        function updateComparisonTable(year, month) {
+            const table = document.getElementById('comparisonTable');
+            const thead = table.querySelector('thead tr');
+            const tbody = table.querySelector('tbody');
+            
+            // Update header
+            thead.innerHTML = '<th>Metric</th>' + selectedSources.map(s => 
+                `<th style="color: ${sourceColors[s] || sourceColors.default}">${s}</th>`
+            ).join('');
+            
+            // Get data for each source
+            const sourceData = selectedSources.map(s => getSourceData(s, year, month) || {});
+            
+            // Metrics to compare
+            const rows = [
+                { label: 'Total Orders', key: 'total_orders', best: 'max' },
+                { label: 'Delivered', key: 'delivered', best: 'max' },
+                { label: 'Delivery Rate', key: 'delivery_rate', best: 'max', suffix: '%' },
+                { label: 'Cancelled', key: 'cancelled', best: 'min' },
+                { label: 'Cancel Rate', key: 'cancel_rate', best: 'min', suffix: '%' },
+                { label: 'Returned', key: 'returned', best: 'min' },
+                { label: 'Failed', key: 'failed', best: 'min' },
+            ];
+            
+            tbody.innerHTML = rows.map(row => {
+                const values = sourceData.map(d => d[row.key] || 0);
+                const best = row.best === 'max' ? Math.max(...values) : Math.min(...values.filter(v => v > 0));
+                
+                return `<tr>
+                    <td>${row.label}</td>
+                    ${values.map(v => {
+                        const isBest = v === best && v > 0;
+                        const cls = isBest ? 'best' : '';
+                        return `<td class="${cls}">${fmt(v)}${row.suffix || ''}</td>`;
+                    }).join('')}
+                </tr>`;
+            }).join('');
+        }
+        
+        // Initialize
+        renderSourceChips();
+        updateDashboard();
+    </script>
+</body>
+</html>

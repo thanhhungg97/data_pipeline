@@ -4,10 +4,15 @@ from pathlib import Path
 
 
 def load_all_data(processed_dir: str = "data/processed") -> pl.DataFrame:
-    """Load all partitioned parquet files."""
+    """Load all partitioned parquet files (supports multi-source structure)."""
     path = Path(processed_dir)
     all_files = list(path.glob("**/*.parquet"))
-    df = pl.concat([pl.read_parquet(f) for f in all_files])
+    
+    if not all_files:
+        raise FileNotFoundError(f"No parquet files found in {processed_dir}")
+    
+    # Use diagonal concat to handle different schemas across sources
+    df = pl.concat([pl.read_parquet(f) for f in all_files], how="diagonal")
     print(f"Loaded {len(df):,} rows from {len(all_files)} files")
     return df
 
