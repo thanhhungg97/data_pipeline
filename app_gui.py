@@ -509,9 +509,6 @@ class DataPipelineApp(ctk.CTk):
         self.sources_scroll.grid(row=2, column=0, sticky="nsew", padx=20, pady=5)
         self.sources_scroll.grid_columnconfigure(0, weight=1)
 
-        # Add initial source
-        self.add_source()
-
         # Config & Output section
         config_frame = ctk.CTkFrame(self, fg_color="transparent")
         config_frame.grid(row=3, column=0, sticky="ew", padx=20, pady=10)
@@ -578,6 +575,9 @@ class DataPipelineApp(ctk.CTk):
         )
         self.run_btn.grid(row=4, column=0, sticky="ew", padx=20, pady=15)
 
+        # Add initial source (must be after run_btn is created)
+        self.add_source()
+
         # Progress section
         progress_frame = ctk.CTkFrame(self, fg_color="transparent")
         progress_frame.grid(row=5, column=0, sticky="nsew", padx=20, pady=(0, 10))
@@ -633,6 +633,8 @@ class DataPipelineApp(ctk.CTk):
         self.update_run_button()
 
     def update_run_button(self):
+        if not hasattr(self, "run_btn"):
+            return
         count = len(self.source_cards)
         self.run_btn.configure(text=f"▶  Run Pipeline ({count} source{'s' if count > 1 else ''})")
 
