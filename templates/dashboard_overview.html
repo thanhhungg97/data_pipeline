@@ -1,138 +1,314 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Shopee Orders Dashboard - Overview</title>
+        <title>Orders Dashboard - Overview</title>
+        <!-- Bootstrap 5 -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+        <!-- Plotly -->
         <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-        <link rel="stylesheet" href="templates/base.css" />
+        <style>
+            body {
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                min-height: 100vh;
+            }
+            .nav-pills .nav-link { color: #888; }
+            .nav-pills .nav-link.active { background-color: #00d4aa; }
+            .card {
+                background: rgba(255, 255, 255, 0.05);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+            .text-success { color: #00d4aa !important; }
+            .text-danger { color: #ff6b6b !important; }
+            .text-warning { color: #ffa726 !important; }
+            .text-purple { color: #ab47bc !important; }
+            .stat-value { font-size: 2.5rem; font-weight: 700; }
+            .stat-label { font-size: 0.875rem; color: #888; text-transform: uppercase; }
+        </style>
     </head>
     <body>
-        {{NAV}}
+        <!-- Navigation -->
+        <nav class="navbar navbar-dark bg-dark bg-opacity-50 border-bottom border-secondary">
+            <div class="container-fluid">
+                <ul class="nav nav-pills">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="dashboard.html">📊 Overview</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="dashboard_compare.html">📈 Monthly Compare</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="dashboard_sources.html">🏪 Sources</a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
 
-        <div class="header">
-            <h1>📊 Orders Dashboard - Overview</h1>
-            <p>Overall performance summary across all data</p>
+        <div class="container-fluid py-4">
+            <!-- Header -->
+            <div class="mb-4">
+                <h1 class="text-white">📊 Orders Dashboard - Overview</h1>
+                <p class="text-secondary">Overall performance summary across all data</p>
+            </div>
+
+            <!-- Date Range Controls -->
+            <div class="row g-3 mb-4 align-items-end">
+                <div class="col-auto">
+                    <label class="form-label text-secondary small text-uppercase">From</label>
+                    <select id="startMonth" class="form-select"></select>
+                </div>
+                <div class="col-auto">
+                    <label class="form-label text-secondary small text-uppercase">To</label>
+                    <select id="endMonth" class="form-select"></select>
+                </div>
+                <div class="col-auto">
+                    <button id="resetBtn" class="btn btn-outline-light">Reset to All</button>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <div class="stat-label">Total Orders</div>
+                            <div class="stat-value text-white" id="totalOrders">-</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <div class="stat-label">Delivery Rate</div>
+                            <div class="stat-value text-success" id="deliveryRate">-</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <div class="stat-label">Date Range</div>
+                            <div class="stat-value text-white" id="dateRange" style="font-size: 1.5rem">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Breakdown -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="text-secondary mb-2">✅ Delivered</h6>
+                            <span class="fs-3 fw-bold text-success" id="deliveredPct">-</span>
+                            <span class="text-secondary ms-2" id="deliveredCount">-</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="text-secondary mb-2">❌ Cancelled</h6>
+                            <span class="fs-3 fw-bold text-danger" id="cancelledPct">-</span>
+                            <span class="text-secondary ms-2" id="cancelledCount">-</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="text-secondary mb-2">↩️ Returned</h6>
+                            <span class="fs-3 fw-bold text-warning" id="returnedPct">-</span>
+                            <span class="text-secondary ms-2" id="returnedCount">-</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="text-secondary mb-2">⚠️ Failed</h6>
+                            <span class="fs-3 fw-bold text-purple" id="failedPct">-</span>
+                            <span class="text-secondary ms-2" id="failedCount">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row 1 -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-8">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title text-white">📈 Monthly Order Volume</h5>
+                            <div id="trendChart"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title text-white">📊 Status Distribution</h5>
+                            <div id="pieChart"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cancellation Reasons -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title text-white">❌ Top Cancellation Reasons</h5>
+                            <div id="reasonsChart"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="metrics-grid">
-            <div class="metric-card">
-                <h3>Total Orders</h3>
-                <div class="metric-value" id="totalOrders">-</div>
-            </div>
-            <div class="metric-card">
-                <h3>Delivery Rate</h3>
-                <div class="metric-value positive" id="deliveryRate">-</div>
-            </div>
-            <div class="metric-card">
-                <h3>Date Range</h3>
-                <div class="metric-value" id="dateRange" style="font-size: 24px">-</div>
-            </div>
-        </div>
-
-        <div class="status-grid">
-            <div class="status-item">
-                <h4>✅ Delivered</h4>
-                <span class="pct delivered" id="deliveredPct">-</span>
-                <span class="value" id="deliveredCount">-</span>
-            </div>
-            <div class="status-item">
-                <h4>❌ Cancelled</h4>
-                <span class="pct cancelled" id="cancelledPct">-</span>
-                <span class="value" id="cancelledCount">-</span>
-            </div>
-            <div class="status-item">
-                <h4>↩️ Returned</h4>
-                <span class="pct returned" id="returnedPct">-</span>
-                <span class="value" id="returnedCount">-</span>
-            </div>
-            <div class="status-item">
-                <h4>⚠️ Failed</h4>
-                <span class="pct failed" id="failedPct">-</span>
-                <span class="value" id="failedCount">-</span>
-            </div>
-        </div>
-
-        <div class="charts-grid">
-            <div class="chart-card">
-                <h3>📈 Monthly Order Volume</h3>
-                <div id="trendChart"></div>
-            </div>
-            <div class="chart-card">
-                <h3>📊 Order Status Distribution</h3>
-                <div id="pieChart"></div>
-            </div>
-        </div>
-
-        <div class="charts-grid" style="grid-template-columns: 1fr">
-            <div class="chart-card">
-                <h3>❌ Top Cancellation Reasons</h3>
-                <div id="reasonsChart"></div>
-            </div>
-        </div>
+        <!-- Bootstrap JS -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
         <script>
-            const summaryData = {{SUMMARY}};
             const monthlyData = {{MONTHLY}};
             const reasonsData = {{REASONS}};
             const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+            // Build list of available months
+            const months = monthlyData.map(d => ({ year: d.Year, month: d.Month, label: `${monthNames[d.Month]} ${d.Year}` }));
+
+            // Populate selectors
+            const startSelect = document.getElementById('startMonth');
+            const endSelect = document.getElementById('endMonth');
+
+            months.forEach((m, i) => {
+                startSelect.add(new Option(m.label, i));
+                endSelect.add(new Option(m.label, i));
+            });
+
+            startSelect.value = 0;
+            endSelect.value = months.length - 1;
+
             function fmt(n) { return n.toLocaleString(); }
 
-            // Summary metrics
-            document.getElementById('totalOrders').textContent = fmt(summaryData.total);
-            document.getElementById('deliveryRate').textContent = summaryData.delivery_rate + '%';
-            document.getElementById('dateRange').textContent = summaryData.date_range;
+            function filterData(startIdx, endIdx) {
+                return monthlyData.slice(startIdx, endIdx + 1);
+            }
 
-            document.getElementById('deliveredPct').textContent = summaryData.delivery_rate + '%';
-            document.getElementById('deliveredCount').textContent = `(${fmt(summaryData.delivered)})`;
-            document.getElementById('cancelledPct').textContent = summaryData.cancel_rate + '%';
-            document.getElementById('cancelledCount').textContent = `(${fmt(summaryData.cancelled)})`;
-            document.getElementById('returnedPct').textContent = summaryData.return_rate + '%';
-            document.getElementById('returnedCount').textContent = `(${fmt(summaryData.returned)})`;
-            document.getElementById('failedPct').textContent = summaryData.failed_rate + '%';
-            document.getElementById('failedCount').textContent = `(${fmt(summaryData.failed)})`;
+            function filterReasons(startIdx, endIdx) {
+                const startM = months[startIdx];
+                const endM = months[endIdx];
+                return reasonsData.filter(r => {
+                    const key = r.Year * 100 + r.Month;
+                    return key >= startM.year * 100 + startM.month && key <= endM.year * 100 + endM.month;
+                });
+            }
 
-            // Trend chart
-            const labels = monthlyData.map(d => `${monthNames[d.Month]} ${d.Year}`);
-            Plotly.newPlot('trendChart', [{
-                x: labels, y: monthlyData.map(d => d.total_orders),
-                type: 'scatter', mode: 'lines+markers',
-                line: {color: '#00d4aa', width: 3}, marker: {size: 8}
-            }], {
-                paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-                font: {color: '#888'}, margin: {t: 20, r: 20, b: 60, l: 60},
-                xaxis: {gridcolor: 'rgba(255,255,255,0.1)', tickangle: -45},
-                yaxis: {gridcolor: 'rgba(255,255,255,0.1)'}
-            }, {responsive: true});
+            function aggregateReasons(filtered) {
+                const agg = {};
+                filtered.forEach(r => {
+                    const reason = r['Reason cancelled'];
+                    agg[reason] = (agg[reason] || 0) + r.count;
+                });
+                return Object.entries(agg)
+                    .map(([reason, count]) => ({ reason, count }))
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 10);
+            }
 
-            // Pie chart
-            Plotly.newPlot('pieChart', [{
-                values: [summaryData.delivered, summaryData.cancelled, summaryData.returned, summaryData.failed],
-                labels: ['Delivered', 'Cancelled', 'Returned', 'Failed'],
-                type: 'pie', hole: 0.4,
-                marker: {colors: ['#00d4aa', '#ff6b6b', '#ffa726', '#ab47bc']},
-                textinfo: 'label+percent'
-            }], {
-                paper_bgcolor: 'rgba(0,0,0,0)',
-                font: {color: '#888'}, margin: {t: 20, r: 20, b: 20, l: 20},
-                showlegend: false
-            }, {responsive: true});
+            function updateDashboard() {
+                const startIdx = parseInt(startSelect.value);
+                const endIdx = parseInt(endSelect.value);
 
-            // Reasons chart
-            if (reasonsData.length > 0) {
-                Plotly.newPlot('reasonsChart', [{
-                    x: reasonsData.map(d => d.count),
-                    y: reasonsData.map(d => d.reason),
-                    type: 'bar', orientation: 'h',
-                    marker: {color: '#ff6b6b'}
+                if (startIdx > endIdx) {
+                    alert('Start date must be before end date');
+                    return;
+                }
+
+                const filtered = filterData(startIdx, endIdx);
+                const total = filtered.reduce((sum, d) => sum + d.total_orders, 0);
+                const delivered = filtered.reduce((sum, d) => sum + d.delivered, 0);
+                const cancelled = filtered.reduce((sum, d) => sum + d.cancelled, 0);
+                const returned = filtered.reduce((sum, d) => sum + d.returned, 0);
+                const failed = filtered.reduce((sum, d) => sum + d.failed, 0);
+
+                const deliveryRate = total > 0 ? (delivered / total * 100).toFixed(1) : 0;
+                const cancelRate = total > 0 ? (cancelled / total * 100).toFixed(1) : 0;
+                const returnRate = total > 0 ? (returned / total * 100).toFixed(1) : 0;
+                const failedRate = total > 0 ? (failed / total * 100).toFixed(1) : 0;
+
+                document.getElementById('totalOrders').textContent = fmt(total);
+                document.getElementById('deliveryRate').textContent = deliveryRate + '%';
+                document.getElementById('dateRange').textContent = `${months[startIdx].label} → ${months[endIdx].label}`;
+
+                document.getElementById('deliveredPct').textContent = deliveryRate + '%';
+                document.getElementById('deliveredCount').textContent = `(${fmt(delivered)})`;
+                document.getElementById('cancelledPct').textContent = cancelRate + '%';
+                document.getElementById('cancelledCount').textContent = `(${fmt(cancelled)})`;
+                document.getElementById('returnedPct').textContent = returnRate + '%';
+                document.getElementById('returnedCount').textContent = `(${fmt(returned)})`;
+                document.getElementById('failedPct').textContent = failedRate + '%';
+                document.getElementById('failedCount').textContent = `(${fmt(failed)})`;
+
+                // Trend chart
+                const labels = filtered.map(d => `${monthNames[d.Month]} ${d.Year}`);
+                Plotly.newPlot('trendChart', [{
+                    x: labels, y: filtered.map(d => d.total_orders),
+                    type: 'scatter', mode: 'lines+markers',
+                    line: {color: '#00d4aa', width: 3}, marker: {size: 8},
+                    fill: 'tozeroy', fillcolor: 'rgba(0,212,170,0.1)'
                 }], {
                     paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-                    font: {color: '#888'}, margin: {t: 20, r: 20, b: 40, l: 200},
-                    xaxis: {gridcolor: 'rgba(255,255,255,0.1)'},
-                    yaxis: {automargin: true}
+                    font: {color: '#888'}, margin: {t: 20, r: 20, b: 60, l: 60},
+                    xaxis: {gridcolor: 'rgba(255,255,255,0.1)', tickangle: -45},
+                    yaxis: {gridcolor: 'rgba(255,255,255,0.1)'}
                 }, {responsive: true});
+
+                // Pie chart
+                Plotly.newPlot('pieChart', [{
+                    values: [delivered, cancelled, returned, failed],
+                    labels: ['Delivered', 'Cancelled', 'Returned', 'Failed'],
+                    type: 'pie', hole: 0.5,
+                    marker: {colors: ['#00d4aa', '#ff6b6b', '#ffa726', '#ab47bc']},
+                    textinfo: 'percent', textposition: 'outside'
+                }], {
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    font: {color: '#888'}, margin: {t: 40, r: 40, b: 40, l: 40},
+                    showlegend: true, legend: {orientation: 'h', y: -0.1}
+                }, {responsive: true});
+
+                // Reasons chart
+                const filteredReasons = filterReasons(startIdx, endIdx);
+                const aggReasons = aggregateReasons(filteredReasons);
+
+                if (aggReasons.length > 0) {
+                    Plotly.newPlot('reasonsChart', [{
+                        x: aggReasons.map(d => d.count),
+                        y: aggReasons.map(d => d.reason),
+                        type: 'bar', orientation: 'h',
+                        marker: {color: '#ff6b6b'}
+                    }], {
+                        paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+                        font: {color: '#888'}, margin: {t: 20, r: 20, b: 40, l: 250},
+                        xaxis: {gridcolor: 'rgba(255,255,255,0.1)'},
+                        yaxis: {automargin: true}
+                    }, {responsive: true});
+                } else {
+                    document.getElementById('reasonsChart').innerHTML = '<p class="text-secondary text-center py-5">No cancellation data for selected range</p>';
+                }
             }
+
+            startSelect.addEventListener('change', updateDashboard);
+            endSelect.addEventListener('change', updateDashboard);
+            document.getElementById('resetBtn').addEventListener('click', () => {
+                startSelect.value = 0;
+                endSelect.value = months.length - 1;
+                updateDashboard();
+            });
+
+            updateDashboard();
         </script>
     </body>
 </html>

@@ -19,38 +19,23 @@ def load_all_data(processed_dir: str = "data/processed") -> pl.DataFrame:
     return df
 
 
-def calculate_summary(df: pl.DataFrame) -> dict:
-    """Calculate overall summary statistics."""
-    total = len(df)
-    delivered = df.filter(pl.col("Status") == "Delivered").height
-    cancelled = df.filter(pl.col("Status").is_in(["Cancel by cust.", "Cancelled"])).height
-    returned = df.filter(pl.col("Status") == "Returned").height
-    failed = df.filter(pl.col("Status").is_in(["Failed delivery", "Failed"])).height
-
-    date_min = df["Date"].min()
-    date_max = df["Date"].max()
-
-    return {
-        "total": total,
-        "delivered": delivered,
-        "cancelled": cancelled,
-        "returned": returned,
-        "failed": failed,
-        "delivery_rate": round(delivered / total * 100, 1),
-        "cancel_rate": round(cancelled / total * 100, 1),
-        "return_rate": round(returned / total * 100, 1),
-        "failed_rate": round(failed / total * 100, 1),
-        "date_range": f"{date_min} to {date_max}" if date_min else "N/A",
-    }
-
-
-def calculate_monthly(df: pl.DataFrame) -> list[dict]:
-    """Calculate monthly metrics."""
+def calculate_monthly_detailed(df: pl.DataFrame) -> list[dict]:
+    """Calculate detailed monthly metrics for filtering."""
     monthly = (
         df.group_by(["Year", "Month"])
         .agg(
             [
                 pl.len().alias("total_orders"),
+                pl.col("Status").filter(pl.col("Status") == "Delivered").len().alias("delivered"),
+                pl.col("Status")
+                .filter(pl.col("Status").is_in(["Cancel by cust.", "Cancelled"]))
+                .len()
+                .alias("cancelled"),
+                pl.col("Status").filter(pl.col("Status") == "Returned").len().alias("returned"),
+                pl.col("Status")
+                .filter(pl.col("Status").is_in(["Failed delivery", "Failed"]))
+                .len()
+                .alias("failed"),
             ]
         )
         .sort(["Year", "Month"])
@@ -59,18 +44,17 @@ def calculate_monthly(df: pl.DataFrame) -> list[dict]:
     return monthly.to_dicts()
 
 
-def calculate_cancel_reasons(df: pl.DataFrame, top_n: int = 10) -> list[dict]:
-    """Get top cancellation reasons."""
+def calculate_cancel_reasons_by_month(df: pl.DataFrame) -> list[dict]:
+    """Get cancellation reasons grouped by year/month."""
     reasons = (
         df.filter(pl.col("Status").is_in(["Cancel by cust.", "Cancelled"]))
         .filter(pl.col("Reason cancelled").is_not_null())
-        .group_by("Reason cancelled")
+        .group_by(["Year", "Month", "Reason cancelled"])
         .agg(pl.len().alias("count"))
-        .sort("count", descending=True)
-        .head(top_n)
+        .sort(["Year", "Month", "count"], descending=[False, False, True])
     )
 
-    return [{"reason": r["Reason cancelled"], "count": r["count"]} for r in reasons.to_dicts()]
+    return reasons.to_dicts()
 
 
 def load_template(template_name: str) -> str:
@@ -90,9 +74,8 @@ def load_nav() -> str:
 def create_dashboard(df: pl.DataFrame, output_file: str = "dashboard.html"):
     """Create an interactive HTML dashboard."""
 
-    summary = calculate_summary(df)
-    monthly = calculate_monthly(df)
-    reasons = calculate_cancel_reasons(df)
+    monthly = calculate_monthly_detailed(df)
+    reasons = calculate_cancel_reasons_by_month(df)
 
     # Load template
     html_content = load_template("dashboard_overview.html")
@@ -100,7 +83,6 @@ def create_dashboard(df: pl.DataFrame, output_file: str = "dashboard.html"):
 
     # Replace placeholders
     html_content = html_content.replace("{{NAV}}", nav_html)
-    html_content = html_content.replace("{{SUMMARY}}", json.dumps(summary))
     html_content = html_content.replace("{{MONTHLY}}", json.dumps(monthly))
     html_content = html_content.replace("{{REASONS}}", json.dumps(reasons))
 
@@ -112,16 +94,22 @@ def create_dashboard(df: pl.DataFrame, output_file: str = "dashboard.html"):
 
 def print_summary(df: pl.DataFrame):
     """Print quick summary stats."""
-    summary = calculate_summary(df)
+    total = len(df)
+    delivered = df.filter(pl.col("Status") == "Delivered").height
+    cancelled = df.filter(pl.col("Status").is_in(["Cancel by cust.", "Cancelled"])).height
+    returned = df.filter(pl.col("Status") == "Returned").height
+
+    date_min = df["Date"].min()
+    date_max = df["Date"].max()
 
     print("\n" + "=" * 50)
     print("📊 QUICK SUMMARY")
     print("=" * 50)
-    print(f"Total Orders: {summary['total']:,}")
-    print(f"Date Range: {summary['date_range']}")
-    print(f"\n✅ Delivery Rate: {summary['delivery_rate']}%")
-    print(f"❌ Cancel Rate: {summary['cancel_rate']}%")
-    print(f"↩️  Return Rate: {summary['return_rate']}%")
+    print(f"Total Orders: {total:,}")
+    print(f"Date Range: {date_min} to {date_max}")
+    print(f"\n✅ Delivery Rate: {round(delivered / total * 100, 1)}%")
+    print(f"❌ Cancel Rate: {round(cancelled / total * 100, 1)}%")
+    print(f"↩️  Return Rate: {round(returned / total * 100, 1)}%")
 
 
 if __name__ == "__main__":

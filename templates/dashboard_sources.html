@@ -1,111 +1,202 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Multi-Source Comparison Dashboard</title>
+        <!-- Bootstrap 5 -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+        <!-- Tom Select for multi-select -->
+        <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet" />
+        <!-- Plotly -->
         <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-        <link rel="stylesheet" href="templates/base.css" />
+        <style>
+            body {
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                min-height: 100vh;
+            }
+            .nav-pills .nav-link {
+                color: #888;
+            }
+            .nav-pills .nav-link.active {
+                background-color: #00d4aa;
+            }
+            .card {
+                background: rgba(255, 255, 255, 0.05);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+            .form-select, .ts-wrapper .ts-control {
+                background: rgba(255, 255, 255, 0.1) !important;
+                border-color: rgba(255, 255, 255, 0.2) !important;
+                color: #fff !important;
+            }
+            .ts-wrapper .ts-control input { color: #fff !important; }
+            .ts-dropdown { background: #1a1a2e !important; border-color: rgba(255,255,255,0.2) !important; }
+            .ts-dropdown .option { color: #fff; }
+            .ts-dropdown .option:hover, .ts-dropdown .active { background: rgba(0,212,170,0.2) !important; }
+            .ts-wrapper.multi .ts-control > .item {
+                background: #00d4aa !important;
+                border: none !important;
+                color: #fff !important;
+            }
+            .text-success { color: #00d4aa !important; }
+            .text-danger { color: #ff6b6b !important; }
+            .table { color: #e0e0e0; }
+            .table thead th { 
+                background: rgba(255,255,255,0.05); 
+                border-color: rgba(255,255,255,0.1);
+                text-transform: uppercase;
+                font-size: 12px;
+                letter-spacing: 1px;
+            }
+            .table td { border-color: rgba(255,255,255,0.1); }
+            .best { color: #00d4aa; font-weight: 600; }
+            .color-dot {
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                display: inline-block;
+                margin-right: 8px;
+            }
+        </style>
     </head>
     <body>
-        {{NAV}}
+        <!-- Navigation -->
+        <nav class="navbar navbar-dark bg-dark bg-opacity-50 border-bottom border-secondary">
+            <div class="container-fluid">
+                <ul class="nav nav-pills">
+                    <li class="nav-item">
+                        <a class="nav-link" href="dashboard.html">📊 Overview</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="dashboard_compare.html">📈 Monthly Compare</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="dashboard_sources.html">🏪 Sources</a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
 
-        <div class="header">
-            <h1>🏪 Multi-Source Comparison Dashboard</h1>
-            <p>Compare performance across different sales channels</p>
+        <div class="container-fluid py-4">
+            <!-- Header -->
+            <div class="mb-4">
+                <h1 class="text-white">🏪 Multi-Source Comparison Dashboard</h1>
+                <p class="text-secondary">Compare performance across different sales channels</p>
+            </div>
+
+            <!-- Controls -->
+            <div class="row g-3 mb-4">
+                <div class="col-auto">
+                    <label class="form-label text-secondary small text-uppercase">Select Month</label>
+                    <select id="monthSelector" class="form-select"></select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label text-secondary small text-uppercase">Compare Sources</label>
+                    <select id="sourceSelector" multiple placeholder="Select sources..."></select>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="row g-3 mb-4" id="summaryGrid"></div>
+
+            <!-- Charts -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title text-white">📈 Orders by Source Over Time</h5>
+                            <div id="trendChart"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title text-white">📊 Source Comparison (Selected Month)</h5>
+                            <div id="comparisonChart"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comparison Table -->
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title text-white mb-3">📋 Detailed Comparison</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="comparisonTable">
+                            <thead>
+                                <tr><th>Metric</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="controls">
-            <div class="control-group">
-                <label>Select Month</label>
-                <select id="monthSelector" onchange="updateDashboard()"></select>
-            </div>
-            <div class="control-group">
-                <label>Compare Sources</label>
-                <div class="source-chips" id="sourceChips"></div>
-            </div>
-            <div class="control-group">
-                <label>&nbsp;</label>
-                <button onclick="selectAllSources()">Select All</button>
-            </div>
-        </div>
-
-        <div class="metrics-grid" id="summaryGrid"></div>
-
-        <div class="charts-grid">
-            <div class="chart-card">
-                <h3>📈 Orders by Source Over Time</h3>
-                <div id="trendChart"></div>
-            </div>
-            <div class="chart-card">
-                <h3>📊 Source Comparison (Selected Month)</h3>
-                <div id="comparisonChart"></div>
-            </div>
-        </div>
-
-        <h3 style="padding: 20px 40px 10px; color: #fff">📋 Detailed Comparison</h3>
-        <table class="comparison-table" id="comparisonTable">
-            <thead>
-                <tr><th>Metric</th></tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+        <!-- Bootstrap JS -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+        <!-- Tom Select -->
+        <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 
         <script>
             const metricsData = {{METRICS}};
             const allSources = {{SOURCES}};
             let selectedSources = [...allSources];
 
-            const sourceColors = {
-                'Shopee': '#ee4d2d',
-                'Website': '#4a90a4',
-                'Lazada': '#0f146d',
-                'Tiki': '#1a94ff',
-                'default': '#6c5ce7'
-            };
+            // Color palette
+            const colorPalette = [
+                '#ee4d2d', '#00d4aa', '#ff6b9d', '#ffa726', '#42a5f5',
+                '#ab47bc', '#26a69a', '#ef5350', '#7e57c2', '#66bb6a'
+            ];
+            const sourceColors = {};
+            allSources.forEach((source, i) => {
+                sourceColors[source] = colorPalette[i % colorPalette.length];
+            });
 
             const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
             const periods = [...new Set(metricsData.map(d => `${d.Year}-${d.Month}`))].sort().reverse();
 
             // Populate month selector
-            const selector = document.getElementById('monthSelector');
+            const monthSelect = document.getElementById('monthSelector');
             periods.forEach((p, i) => {
                 const [year, month] = p.split('-').map(Number);
-                const opt = document.createElement('option');
-                opt.value = p;
-                opt.textContent = `${monthNames[month]} ${year}`;
-                if (i === 0) opt.selected = true;
-                selector.appendChild(opt);
+                const opt = new Option(`${monthNames[month]} ${year}`, p, i === 0, i === 0);
+                monthSelect.add(opt);
             });
+            monthSelect.onchange = updateDashboard;
 
-            function renderSourceChips() {
-                const container = document.getElementById('sourceChips');
-                container.innerHTML = '';
-                allSources.forEach(source => {
-                    const chip = document.createElement('div');
-                    chip.className = `chip ${selectedSources.includes(source) ? 'selected' : ''}`;
-                    chip.style.background = sourceColors[source] || sourceColors.default;
-                    chip.textContent = source;
-                    chip.onclick = () => toggleSource(source);
-                    container.appendChild(chip);
-                });
-            }
-
-            function toggleSource(source) {
-                if (selectedSources.includes(source)) {
-                    if (selectedSources.length > 1) selectedSources = selectedSources.filter(s => s !== source);
-                } else {
-                    selectedSources.push(source);
+            // Initialize Tom Select for sources
+            const sourceSelect = new TomSelect('#sourceSelector', {
+                plugins: ['remove_button', 'checkbox_options'],
+                maxItems: null,
+                valueField: 'value',
+                labelField: 'label',
+                searchField: 'label',
+                options: allSources.map(s => ({
+                    value: s,
+                    label: s,
+                    color: sourceColors[s]
+                })),
+                items: allSources,
+                render: {
+                    option: function(data, escape) {
+                        return `<div><span class="color-dot" style="background:${data.color}"></span>${escape(data.label)}</div>`;
+                    },
+                    item: function(data, escape) {
+                        return `<div style="background:${data.color}">${escape(data.label)}</div>`;
+                    }
+                },
+                onChange: function(values) {
+                    selectedSources = values.length > 0 ? values : [allSources[0]];
+                    if (values.length === 0) {
+                        this.addItem(allSources[0]);
+                    }
+                    updateDashboard();
                 }
-                renderSourceChips();
-                updateDashboard();
-            }
-
-            function selectAllSources() {
-                selectedSources = [...allSources];
-                renderSourceChips();
-                updateDashboard();
-            }
+            });
 
             function getSourceData(source, year, month) {
                 return metricsData.find(d => d.Source === source && d.Year === year && d.Month === month);
@@ -114,33 +205,37 @@
             function fmt(n) { return n ? n.toLocaleString() : '0'; }
 
             function updateDashboard() {
-                const [year, month] = selector.value.split('-').map(Number);
+                const [year, month] = monthSelect.value.split('-').map(Number);
                 const grid = document.getElementById('summaryGrid');
                 grid.innerHTML = '';
 
                 selectedSources.forEach(source => {
                     const data = getSourceData(source, year, month);
-                    const color = sourceColors[source] || sourceColors.default;
-                    const card = document.createElement('div');
-                    card.className = 'metric-card';
-                    card.innerHTML = `
-                        <h3 style="color: ${color}">${source} - ${monthNames[month]} ${year}</h3>
-                        <div style="display: grid; gap: 10px; margin-top: 15px;">
-                            <div style="display: flex; justify-content: space-between;">
-                                <span style="color: #888;">Total Orders</span>
-                                <span style="font-weight: 600;">${data ? fmt(data.total_orders) : '-'}</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;">
-                                <span style="color: #888;">Delivery Rate</span>
-                                <span class="positive" style="font-weight: 600;">${data ? data.delivery_rate + '%' : '-'}</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;">
-                                <span style="color: #888;">Cancel Rate</span>
-                                <span class="negative" style="font-weight: 600;">${data ? data.cancel_rate + '%' : '-'}</span>
+                    const color = sourceColors[source];
+                    grid.innerHTML += `
+                        <div class="col-md-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-3" style="color:${color}">
+                                        <span class="color-dot" style="background:${color}"></span>
+                                        ${source}
+                                    </h6>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-secondary">Total Orders</span>
+                                        <span class="text-white fw-bold">${data ? fmt(data.total_orders) : '-'}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-secondary">Delivery Rate</span>
+                                        <span class="text-success fw-bold">${data ? data.delivery_rate + '%' : '-'}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-secondary">Cancel Rate</span>
+                                        <span class="text-danger fw-bold">${data ? data.cancel_rate + '%' : '-'}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     `;
-                    grid.appendChild(card);
                 });
 
                 updateCharts(year, month);
@@ -148,7 +243,6 @@
             }
 
             function updateCharts(year, month) {
-                // Trend chart
                 const traces = selectedSources.map(source => {
                     const sourceData = metricsData.filter(d => d.Source === source)
                         .sort((a, b) => a.Year !== b.Year ? a.Year - b.Year : a.Month - b.Month).slice(-12);
@@ -156,7 +250,7 @@
                         x: sourceData.map(d => `${monthNames[d.Month]} ${d.Year}`),
                         y: sourceData.map(d => d.total_orders),
                         type: 'scatter', mode: 'lines+markers', name: source,
-                        line: {color: sourceColors[source] || sourceColors.default, width: 3}
+                        line: {color: sourceColors[source], width: 3}
                     };
                 });
 
@@ -168,7 +262,6 @@
                     legend: {orientation: 'h', y: 1.1}
                 }, {responsive: true});
 
-                // Comparison chart
                 const metrics = ['Total Orders', 'Delivered', 'Cancelled', 'Returned'];
                 const barTraces = selectedSources.map(source => {
                     const data = getSourceData(source, year, month);
@@ -176,7 +269,7 @@
                         x: metrics,
                         y: data ? [data.total_orders, data.delivered, data.cancelled, data.returned] : [0,0,0,0],
                         type: 'bar', name: source,
-                        marker: {color: sourceColors[source] || sourceColors.default}
+                        marker: {color: sourceColors[source]}
                     };
                 });
 
@@ -194,7 +287,7 @@
                 const tbody = table.querySelector('tbody');
 
                 thead.innerHTML = '<th>Metric</th>' + selectedSources.map(s =>
-                    `<th style="color: ${sourceColors[s] || sourceColors.default}">${s}</th>`
+                    `<th><span class="color-dot" style="background:${sourceColors[s]}"></span>${s}</th>`
                 ).join('');
 
                 const sourceData = selectedSources.map(s => getSourceData(s, year, month) || {});
@@ -216,7 +309,6 @@
                 }).join('');
             }
 
-            renderSourceChips();
             updateDashboard();
         </script>
     </body>

@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);
+    min-height: 100vh;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* React Select theme */
+.react-select__control {
+  background: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  min-height: 42px !important;
+  backdrop-filter: blur(8px);
+}
+.react-select__control:hover {
+  border-color: #10b981 !important;
+}
+.react-select__menu {
+  background: #374151 !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  z-index: 50 !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3) !important;
+}
+.react-select__option {
+  background: transparent !important;
+  color: #f3f4f6 !important;
+}
+.react-select__option:hover,
+.react-select__option--is-focused {
+  background: rgba(16, 185, 129, 0.25) !important;
+}
+.react-select__option--is-selected {
+  background: rgba(16, 185, 129, 0.4) !important;
+}
+.react-select__single-value,
+.react-select__input-container,
+.react-select__placeholder,
+.react-select__input {
+  color: #f3f4f6 !important;
+}
+.react-select__multi-value {
+  background: #10b981 !important;
+  border-radius: 6px !important;
+}
+.react-select__multi-value__label {
+  color: white !important;
+  font-weight: 500 !important;
+}
+.react-select__multi-value__remove:hover {
+  background: rgba(0, 0, 0, 0.2) !important;
+  color: white !important;
+}
+.react-select__indicator-separator {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+}
+.react-select__dropdown-indicator,
+.react-select__clear-indicator {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Card hover */
+.card-hover {
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+/* Recharts transparent background */
+.recharts-wrapper,
+.recharts-surface,
+.recharts-cartesian-grid-bg {
+  background: transparent !important;
+}
+.recharts-cartesian-grid rect {
+  fill: transparent !important;
+}
