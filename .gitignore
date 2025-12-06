@@ -5,9 +5,10 @@ data/
 *.parquet
 *.csv
 
-# Output
-dashboard.html
-dashboard_compare.html
+# Generated dashboard files (in root)
+/dashboard.html
+/dashboard_compare.html
+/dashboard_sources.html
 
 # Python
 __pycache__/

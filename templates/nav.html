@@ -1,0 +1,15 @@
+<nav class="nav">
+    <a href="dashboard.html" id="nav-overview">📊 Overview</a>
+    <a href="dashboard_compare.html" id="nav-compare">📈 Month Comparison</a>
+    <a href="dashboard_sources.html" id="nav-sources">🏪 Source Comparison</a>
+</nav>
+<script>
+    // Highlight current page in nav
+    const currentPage = window.location.pathname.split('/').pop();
+    document.querySelectorAll('.nav a').forEach(link => {
+        if (link.getAttribute('href') === currentPage) {
+            link.classList.add('active');
+        }
+    });
+</script>
+

@@ -1,9 +1,7 @@
-"""Visualize Shopee order data."""
+"""Visualize order data - Overview dashboard."""
 import polars as pl
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 from pathlib import Path
+import json
 
 
 def load_all_data(processed_dir: str = "data/processed") -> pl.DataFrame:
@@ -14,166 +12,111 @@ def load_all_data(processed_dir: str = "data/processed") -> pl.DataFrame:
     if not all_files:
         raise FileNotFoundError(f"No parquet files found in {processed_dir}")
     
-    # Use diagonal concat to handle different schemas across sources
     df = pl.concat([pl.read_parquet(f) for f in all_files], how="diagonal")
     print(f"Loaded {len(df):,} rows from {len(all_files)} files")
     return df
 
 
+def calculate_summary(df: pl.DataFrame) -> dict:
+    """Calculate overall summary statistics."""
+    total = len(df)
+    delivered = df.filter(pl.col("Status") == "Delivered").height
+    cancelled = df.filter(pl.col("Status").is_in(["Cancel by cust.", "Cancelled"])).height
+    returned = df.filter(pl.col("Status") == "Returned").height
+    failed = df.filter(pl.col("Status").is_in(["Failed delivery", "Failed"])).height
+    
+    date_min = df["Date"].min()
+    date_max = df["Date"].max()
+    
+    return {
+        "total": total,
+        "delivered": delivered,
+        "cancelled": cancelled,
+        "returned": returned,
+        "failed": failed,
+        "delivery_rate": round(delivered / total * 100, 1),
+        "cancel_rate": round(cancelled / total * 100, 1),
+        "return_rate": round(returned / total * 100, 1),
+        "failed_rate": round(failed / total * 100, 1),
+        "date_range": f"{date_min} to {date_max}" if date_min else "N/A"
+    }
+
+
+def calculate_monthly(df: pl.DataFrame) -> list[dict]:
+    """Calculate monthly metrics."""
+    monthly = df.group_by(["Year", "Month"]).agg([
+        pl.len().alias("total_orders"),
+    ]).sort(["Year", "Month"])
+    
+    return monthly.to_dicts()
+
+
+def calculate_cancel_reasons(df: pl.DataFrame, top_n: int = 10) -> list[dict]:
+    """Get top cancellation reasons."""
+    reasons = (
+        df.filter(pl.col("Status").is_in(["Cancel by cust.", "Cancelled"]))
+        .filter(pl.col("Reason cancelled").is_not_null())
+        .group_by("Reason cancelled")
+        .agg(pl.len().alias("count"))
+        .sort("count", descending=True)
+        .head(top_n)
+    )
+    
+    return [{"reason": r["Reason cancelled"], "count": r["count"]} for r in reasons.to_dicts()]
+
+
+def load_template(template_name: str) -> str:
+    """Load HTML template from templates folder."""
+    template_path = Path(__file__).parent / "templates" / template_name
+    with open(template_path, 'r', encoding='utf-8') as f:
+        return f.read()
+
+
+def load_nav() -> str:
+    """Load navigation HTML."""
+    nav_path = Path(__file__).parent / "templates" / "nav.html"
+    with open(nav_path, 'r', encoding='utf-8') as f:
+        return f.read()
+
+
 def create_dashboard(df: pl.DataFrame, output_file: str = "dashboard.html"):
     """Create an interactive HTML dashboard."""
     
-    # Prepare data
-    df = df.with_columns([
-        pl.concat_str([pl.col("Year").cast(pl.Utf8), pl.lit("-"), 
-                       pl.col("Month").cast(pl.Utf8).str.zfill(2)]).alias("YearMonth")
-    ])
+    summary = calculate_summary(df)
+    monthly = calculate_monthly(df)
+    reasons = calculate_cancel_reasons(df)
     
-    # 1. Monthly order counts
-    monthly = df.group_by("YearMonth").agg(pl.count().alias("Orders")).sort("YearMonth")
+    # Load template
+    html_content = load_template("dashboard_overview.html")
+    nav_html = load_nav()
     
-    # 2. Status breakdown
-    status_counts = df.group_by("Status").agg(pl.count().alias("Count")).sort("Count", descending=True)
+    # Replace placeholders
+    html_content = html_content.replace("{{NAV}}", nav_html)
+    html_content = html_content.replace("{{SUMMARY}}", json.dumps(summary))
+    html_content = html_content.replace("{{MONTHLY}}", json.dumps(monthly))
+    html_content = html_content.replace("{{REASONS}}", json.dumps(reasons))
     
-    # 3. Monthly orders by status
-    monthly_status = df.group_by(["YearMonth", "Status"]).agg(pl.count().alias("Orders")).sort("YearMonth")
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(html_content)
     
-    # 4. Cancellation reasons (only for cancelled orders)
-    cancel_reasons = (
-        df.filter(pl.col("Status") == "Cancel by cust.")
-        .filter(pl.col("Reason cancelled").is_not_null())
-        .group_by("Reason cancelled")
-        .agg(pl.count().alias("Count"))
-        .sort("Count", descending=True)
-        .head(10)
-    )
-    
-    # Create subplots
-    fig = make_subplots(
-        rows=2, cols=2,
-        subplot_titles=(
-            "📈 Monthly Order Volume",
-            "📊 Order Status Distribution", 
-            "📉 Monthly Orders by Status",
-            "❌ Top Cancellation Reasons"
-        ),
-        specs=[
-            [{"type": "scatter"}, {"type": "pie"}],
-            [{"type": "bar"}, {"type": "bar"}]
-        ],
-        vertical_spacing=0.12,
-        horizontal_spacing=0.1
-    )
-    
-    # Plot 1: Monthly orders line chart
-    fig.add_trace(
-        go.Scatter(
-            x=monthly["YearMonth"].to_list(),
-            y=monthly["Orders"].to_list(),
-            mode="lines+markers",
-            name="Orders",
-            line=dict(color="#636EFA", width=3),
-            marker=dict(size=8)
-        ),
-        row=1, col=1
-    )
-    
-    # Plot 2: Status pie chart
-    colors = ["#00CC96", "#EF553B", "#FFA15A", "#AB63FA"]
-    fig.add_trace(
-        go.Pie(
-            labels=status_counts["Status"].to_list(),
-            values=status_counts["Count"].to_list(),
-            marker=dict(colors=colors),
-            textinfo="label+percent",
-            hole=0.4
-        ),
-        row=1, col=2
-    )
-    
-    # Plot 3: Stacked bar by status
-    statuses = df["Status"].unique().to_list()
-    color_map = {
-        "Delivered": "#00CC96",
-        "Cancel by cust.": "#EF553B", 
-        "Returned": "#FFA15A",
-        "Failed delivery": "#AB63FA"
-    }
-    
-    for status in statuses:
-        status_data = monthly_status.filter(pl.col("Status") == status)
-        fig.add_trace(
-            go.Bar(
-                x=status_data["YearMonth"].to_list(),
-                y=status_data["Orders"].to_list(),
-                name=status,
-                marker_color=color_map.get(status, "#636EFA")
-            ),
-            row=2, col=1
-        )
-    
-    # Plot 4: Cancellation reasons
-    fig.add_trace(
-        go.Bar(
-            x=cancel_reasons["Count"].to_list(),
-            y=cancel_reasons["Reason cancelled"].to_list(),
-            orientation="h",
-            marker_color="#EF553B",
-            showlegend=False
-        ),
-        row=2, col=2
-    )
-    
-    # Update layout
-    fig.update_layout(
-        title=dict(
-            text="🛒 Shopee Orders Dashboard",
-            font=dict(size=24)
-        ),
-        height=900,
-        showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        barmode="stack",
-        template="plotly_white"
-    )
-    
-    # Update axes
-    fig.update_xaxes(title_text="Month", row=1, col=1, tickangle=45)
-    fig.update_yaxes(title_text="Orders", row=1, col=1)
-    fig.update_xaxes(title_text="Month", row=2, col=1, tickangle=45)
-    fig.update_yaxes(title_text="Orders", row=2, col=1)
-    fig.update_xaxes(title_text="Count", row=2, col=2)
-    
-    # Save to HTML
-    fig.write_html(output_file)
-    print(f"\n✅ Dashboard saved to: {output_file}")
-    print("Open this file in your browser to view the interactive dashboard.")
-    
-    return fig
+    print(f"\n✅ Overview dashboard saved to: {output_file}")
 
 
 def print_summary(df: pl.DataFrame):
     """Print quick summary stats."""
+    summary = calculate_summary(df)
+    
     print("\n" + "=" * 50)
     print("📊 QUICK SUMMARY")
     print("=" * 50)
-    print(f"Total Orders: {len(df):,}")
-    print(f"Date Range: {df['Date'].min()} to {df['Date'].max()}")
-    print(f"\nStatus Breakdown:")
-    
-    status_counts = df.group_by("Status").agg(pl.count().alias("Count")).sort("Count", descending=True)
-    for row in status_counts.iter_rows(named=True):
-        pct = row["Count"] / len(df) * 100
-        print(f"  {row['Status']}: {row['Count']:,} ({pct:.1f}%)")
-    
-    # Delivery rate
-    delivered = df.filter(pl.col("Status") == "Delivered").height
-    delivery_rate = delivered / len(df) * 100
-    print(f"\n✅ Delivery Success Rate: {delivery_rate:.1f}%")
+    print(f"Total Orders: {summary['total']:,}")
+    print(f"Date Range: {summary['date_range']}")
+    print(f"\n✅ Delivery Rate: {summary['delivery_rate']}%")
+    print(f"❌ Cancel Rate: {summary['cancel_rate']}%")
+    print(f"↩️  Return Rate: {summary['return_rate']}%")
 
 
 if __name__ == "__main__":
     df = load_all_data()
     print_summary(df)
     create_dashboard(df)
-

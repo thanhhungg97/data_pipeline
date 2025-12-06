@@ -8,22 +8,7 @@
     <link rel="stylesheet" href="templates/base.css">
 </head>
 <body>
-    <nav class="nav">
-    <a href="dashboard.html" id="nav-overview">📊 Overview</a>
-    <a href="dashboard_compare.html" id="nav-compare">📈 Month Comparison</a>
-    <a href="dashboard_sources.html" id="nav-sources">🏪 Source Comparison</a>
-</nav>
-<script>
-    // Highlight current page in nav
-    const currentPage = window.location.pathname.split('/').pop();
-    document.querySelectorAll('.nav a').forEach(link => {
-        if (link.getAttribute('href') === currentPage) {
-            link.classList.add('active');
-        }
-    });
-</script>
-
-
+    {{NAV}}
     
     <div class="header">
         <h1>🏪 Multi-Source Comparison Dashboard</h1>
@@ -65,8 +50,8 @@
     </table>
 
     <script>
-        const metricsData = [{"Source": "Shopee", "Year": 2024, "Month": 1, "total_orders": 13113, "delivered": 8589, "cancelled": 3762, "returned": 369, "failed": 393, "delivery_rate": 65.5, "cancel_rate": 28.7}, {"Source": "Shopee", "Year": 2024, "Month": 2, "total_orders": 8982, "delivered": 6063, "cancelled": 2343, "returned": 255, "failed": 321, "delivery_rate": 67.5, "cancel_rate": 26.1}, {"Source": "Shopee", "Year": 2024, "Month": 3, "total_orders": 17769, "delivered": 11190, "cancelled": 5403, "returned": 789, "failed": 387, "delivery_rate": 63.0, "cancel_rate": 30.4}, {"Source": "Shopee", "Year": 2024, "Month": 4, "total_orders": 20310, "delivered": 12669, "cancelled": 6012, "returned": 1095, "failed": 534, "delivery_rate": 62.4, "cancel_rate": 29.6}, {"Source": "Shopee", "Year": 2024, "Month": 5, "total_orders": 41724, "delivered": 26445, "cancelled": 12075, "returned": 2253, "failed": 951, "delivery_rate": 63.4, "cancel_rate": 28.9}, {"Source": "Shopee", "Year": 2024, "Month": 6, "total_orders": 35778, "delivered": 22113, "cancelled": 10392, "returned": 2412, "failed": 861, "delivery_rate": 61.8, "cancel_rate": 29.0}, {"Source": "Shopee", "Year": 2024, "Month": 7, "total_orders": 39099, "delivered": 24759, "cancelled": 10575, "returned": 2703, "failed": 1062, "delivery_rate": 63.3, "cancel_rate": 27.0}, {"Source": "Shopee", "Year": 2024, "Month": 8, "total_orders": 43050, "delivered": 29835, "cancelled": 11730, "returned": 492, "failed": 993, "delivery_rate": 69.3, "cancel_rate": 27.2}, {"Source": "Shopee", "Year": 2024, "Month": 9, "total_orders": 49839, "delivered": 33615, "cancelled": 14508, "returned": 615, "failed": 1101, "delivery_rate": 67.4, "cancel_rate": 29.1}, {"Source": "Shopee", "Year": 2024, "Month": 10, "total_orders": 36492, "delivered": 23346, "cancelled": 9822, "returned": 2460, "failed": 864, "delivery_rate": 64.0, "cancel_rate": 26.9}, {"Source": "Shopee", "Year": 2024, "Month": 11, "total_orders": 46335, "delivered": 28347, "cancelled": 12789, "returned": 5139, "failed": 60, "delivery_rate": 61.2, "cancel_rate": 27.6}, {"Source": "Shopee", "Year": 2024, "Month": 12, "total_orders": 33330, "delivered": 20664, "cancelled": 9207, "returned": 3408, "failed": 51, "delivery_rate": 62.0, "cancel_rate": 27.6}, {"Source": "Shopee", "Year": 2025, "Month": 1, "total_orders": 24768, "delivered": 15840, "cancelled": 6813, "returned": 1575, "failed": 540, "delivery_rate": 64.0, "cancel_rate": 27.5}, {"Source": "Shopee", "Year": 2025, "Month": 2, "total_orders": 22134, "delivered": 14358, "cancelled": 6111, "returned": 1170, "failed": 495, "delivery_rate": 64.9, "cancel_rate": 27.6}, {"Source": "Shopee", "Year": 2025, "Month": 3, "total_orders": 26136, "delivered": 16833, "cancelled": 7401, "returned": 1500, "failed": 402, "delivery_rate": 64.4, "cancel_rate": 28.3}, {"Source": "Shopee", "Year": 2025, "Month": 4, "total_orders": 28452, "delivered": 18222, "cancelled": 7875, "returned": 1773, "failed": 582, "delivery_rate": 64.0, "cancel_rate": 27.7}, {"Source": "Shopee", "Year": 2025, "Month": 5, "total_orders": 43878, "delivered": 27624, "cancelled": 12798, "returned": 2556, "failed": 900, "delivery_rate": 63.0, "cancel_rate": 29.2}, {"Source": "Shopee", "Year": 2025, "Month": 6, "total_orders": 56331, "delivered": 35928, "cancelled": 15147, "returned": 4137, "failed": 1119, "delivery_rate": 63.8, "cancel_rate": 26.9}, {"Source": "Shopee", "Year": 2025, "Month": 7, "total_orders": 53094, "delivered": 34584, "cancelled": 13338, "returned": 4227, "failed": 945, "delivery_rate": 65.1, "cancel_rate": 25.1}, {"Source": "Shopee", "Year": 2025, "Month": 8, "total_orders": 44424, "delivered": 29082, "cancelled": 11139, "returned": 3321, "failed": 882, "delivery_rate": 65.5, "cancel_rate": 25.1}, {"Source": "Shopee", "Year": 2025, "Month": 9, "total_orders": 43143, "delivered": 26472, "cancelled": 12096, "returned": 3783, "failed": 792, "delivery_rate": 61.4, "cancel_rate": 28.0}, {"Source": "Shopee", "Year": 2025, "Month": 10, "total_orders": 45024, "delivered": 27681, "cancelled": 12852, "returned": 3669, "failed": 822, "delivery_rate": 61.5, "cancel_rate": 28.5}, {"Source": "Shopee", "Year": 2025, "Month": 11, "total_orders": 66447, "delivered": 38943, "cancelled": 19590, "returned": 4437, "failed": 894, "delivery_rate": 58.6, "cancel_rate": 29.5}];
-        const allSources = ["Shopee"];
+        const metricsData = {{METRICS}};
+        const allSources = {{SOURCES}};
         let selectedSources = [...allSources];
         
         const sourceColors = {
