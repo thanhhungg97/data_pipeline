@@ -75,6 +75,8 @@ def build():
         "src.etl.gold",
         "--hidden-import",
         "src.etl.gold.combine",
+        "--hidden-import",
+        "yaml",
         # Collect all polars dependencies
         "--collect-all",
         "polars",

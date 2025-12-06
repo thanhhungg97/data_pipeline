@@ -87,6 +87,7 @@ jobs:
             --hidden-import src.etl.silver.website `
             --hidden-import src.etl.gold `
             --hidden-import src.etl.gold.combine `
+            --hidden-import yaml `
             --collect-all polars `
             app_gui.py
       
