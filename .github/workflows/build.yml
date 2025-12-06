@@ -106,11 +106,33 @@ jobs:
             --collect-all yaml `
             app_gui.py
       
+      - name: Create ZIP package
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $exeName = "DataProcessingPipeline-$version.exe"
+          $zipName = "DataProcessingPipeline-$version-windows.zip"
+          
+          # Create package folder with exe and readme
+          New-Item -ItemType Directory -Path "package" -Force
+          Copy-Item "dist/$exeName" "package/"
+          Copy-Item "README.md" "package/" -ErrorAction SilentlyContinue
+          
+          # Create zip
+          Compress-Archive -Path "package/*" -DestinationPath "dist/$zipName" -Force
+          
+          # Show sizes
+          Write-Host "📦 Package contents:"
+          Get-ChildItem "package" | ForEach-Object { Write-Host "  - $($_.Name): $([math]::Round($_.Length/1MB, 2)) MB" }
+          Write-Host "📦 ZIP size: $([math]::Round((Get-Item "dist/$zipName").Length/1MB, 2)) MB"
+      
       - name: Upload artifact (for all builds)
         uses: actions/upload-artifact@v4
         with:
           name: DataProcessingPipeline-${{ steps.version.outputs.version }}
-          path: dist/*.exe
+          path: |
+            dist/*.exe
+            dist/*.zip
           retention-days: 30
 
   release:
@@ -126,6 +148,9 @@ jobs:
           name: DataProcessingPipeline-${{ github.ref_name }}
           path: dist/
       
+      - name: List release files
+        run: ls -la dist/
+      
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -134,22 +159,26 @@ jobs:
             ## Data Processing Pipeline ${{ github.ref_name }}
             
             ### 📥 Download
-            Download `DataProcessingPipeline-${{ github.ref_name }}.exe` below.
+            - **Windows ZIP** (recommended): `DataProcessingPipeline-${{ github.ref_name }}-windows.zip`
+            - **Windows EXE**: `DataProcessingPipeline-${{ github.ref_name }}.exe`
             
             ### 🚀 Usage
-            1. Double-click the .exe file
-            2. Select your Excel files folder
-            3. Click "Run Pipeline"
-            4. View the interactive React dashboard!
+            1. Download and extract the ZIP (or run EXE directly)
+            2. Double-click the .exe file
+            3. Add sources (select folder or files)
+            4. Click "Run Pipeline"
+            5. View the interactive React dashboard!
             
             No installation required - just run the exe!
             
             ### ⚙️ Features
-            - Unified ETL pipeline (same logic as CLI)
+            - Multi-source ETL pipeline with error handling
             - **Bundled React dashboard** with charts and comparisons
-            - Status normalization from config.yaml
-            - Partitioned Parquet output
-          files: dist/*.exe
+            - Select individual files or entire folders
+            - Detailed error reporting per file
+          files: |
+            dist/*.zip
+            dist/*.exe
           draft: false
           prerelease: false
         env:
