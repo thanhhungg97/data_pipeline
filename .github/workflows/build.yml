@@ -51,7 +51,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller polars fastexcel openpyxl pyyaml
+          pip install pyinstaller polars fastexcel openpyxl xlrd pyyaml
       
       - name: Get version
         id: version
@@ -89,8 +89,19 @@ jobs:
             --hidden-import src.etl.gold.combine `
             --hidden-import yaml `
             --hidden-import fastexcel `
+            --hidden-import openpyxl `
+            --hidden-import xlrd `
+            --hidden-import json `
+            --hidden-import shutil `
+            --hidden-import threading `
+            --hidden-import webbrowser `
+            --hidden-import tkinter `
+            --hidden-import tkinter.filedialog `
+            --hidden-import tkinter.messagebox `
             --collect-all polars `
             --collect-all fastexcel `
+            --collect-all openpyxl `
+            --collect-all yaml `
             app_gui.py
       
       - name: Upload artifact (for all builds)
