@@ -77,9 +77,13 @@ def build():
         "src.etl.gold.combine",
         "--hidden-import",
         "yaml",
+        "--hidden-import",
+        "fastexcel",
         # Collect all polars dependencies
         "--collect-all",
         "polars",
+        "--collect-all",
+        "fastexcel",
         # Entry point
         "app_gui.py",
     ]

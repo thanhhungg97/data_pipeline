@@ -88,7 +88,9 @@ jobs:
             --hidden-import src.etl.gold `
             --hidden-import src.etl.gold.combine `
             --hidden-import yaml `
+            --hidden-import fastexcel `
             --collect-all polars `
+            --collect-all fastexcel `
             app_gui.py
       
       - name: Upload artifact (for all builds)
