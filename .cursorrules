@@ -70,16 +70,29 @@ The pipeline supports multiple data sources (Shopee, Website, Lazada, etc.):
 - Reason cancelled (string)
 - Year, Month (int) - added by transform
 
-## Adding a New Source
-1. Add source config to `config.yaml`:
-   ```yaml
-   sources:
-     newstore:
-       pattern: "NewStore*.xlsx"
-       source_name: "NewStore"
-   ```
-2. Place files in `data/raw/` matching the pattern
-3. Run pipeline - it auto-detects and processes
+## Adding a New Source (Simple!)
+Just create a folder with the source name:
+```
+data/raw/
+├── shopee/           ← Folder name = Source name
+│   ├── Jan 2025.xlsx
+│   └── Feb 2025.xlsx
+├── website/
+│   └── Orders.xlsx
+└── lazada/
+    └── Sales.xlsx
+```
+
+Then run `python main.py` — auto-detects all sources!
+
+## Adding a Source (With Config)
+For custom patterns or column mappings, add to `config.yaml`:
+```yaml
+sources:
+  lazada:
+    pattern: "Lazada*.xlsx"      # or "lazada/*.xlsx" for subfolder
+    source_name: "Lazada"
+```
 
 ## File Structure
 ```
