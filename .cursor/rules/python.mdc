@@ -1,3 +1,7 @@
+---
+globs: "**/*.py"
+---
+
 # Shopee Data Pipeline - Cursor Rules
 
 You are an expert in data engineering, ETL pipelines, and Python development with Polars.

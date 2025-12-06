@@ -2,19 +2,21 @@
 Standalone GUI app for Shopee Data Pipeline.
 Uses only tkinter (built into Python) - no extra GUI dependencies.
 """
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-import threading
-import webbrowser
+
 import json
-from pathlib import Path
 import os
 import sys
+import threading
+import tkinter as tk
+import webbrowser
+from pathlib import Path
+from tkinter import filedialog, messagebox
+
 
 # Handle PyInstaller bundled paths
 def resource_path(relative_path):
     """Get absolute path to resource, works for dev and PyInstaller."""
-    if hasattr(sys, '_MEIPASS'):
+    if hasattr(sys, "_MEIPASS"):
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.abspath("."), relative_path)
 
@@ -23,66 +25,67 @@ def resource_path(relative_path):
 # EMBEDDED ETL LOGIC (no external imports needed at runtime)
 # ============================================================
 
+
 def run_etl(input_dir: str, output_dir: str, progress_callback=None):
     """Run the full ETL pipeline."""
     import polars as pl
-    
+
     def log(msg):
         if progress_callback:
             progress_callback(msg)
-    
+
     # EXTRACT
     log("📂 Reading Excel files...")
     input_path = Path(input_dir)
     dataframes = []
-    
+
     excel_files = list(input_path.glob("*.xlsx")) + list(input_path.glob("*.xls"))
-    
+
     if not excel_files:
         raise FileNotFoundError(f"No Excel files found in {input_dir}")
-    
-    for i, file in enumerate(excel_files):
+
+    for _i, file in enumerate(excel_files):
         log(f"  Reading {file.name}...")
         df = pl.read_excel(file)
         dataframes.append(df)
-    
+
     log(f"✅ Loaded {len(excel_files)} files")
-    
+
     # TRANSFORM
     log("🔄 Transforming data...")
     combined = pl.concat(dataframes, how="diagonal")
-    
+
     # Add Year and Month
-    combined = combined.with_columns([
-        pl.col("Date").dt.year().alias("Year"),
-        pl.col("Date").dt.month().alias("Month"),
-    ])
-    
+    combined = combined.with_columns(
+        [
+            pl.col("Date").dt.year().alias("Year"),
+            pl.col("Date").dt.month().alias("Month"),
+        ]
+    )
+
     log(f"✅ Combined {len(combined):,} rows")
-    
+
     # LOAD - Partitioned by Year/Month
     log("💾 Saving partitioned files...")
     output_path = Path(output_dir)
-    
+
     # Filter out null dates
     df_valid = combined.filter(pl.col("Year").is_not_null() & pl.col("Month").is_not_null())
     unique_periods = df_valid.select(["Year", "Month"]).unique().sort(["Year", "Month"])
-    
+
     total_files = 0
     for row in unique_periods.iter_rows(named=True):
         year = int(row["Year"])
         month = int(row["Month"])
-        
-        partition = df_valid.filter(
-            (pl.col("Year") == year) & (pl.col("Month") == month)
-        )
-        
+
+        partition = df_valid.filter((pl.col("Year") == year) & (pl.col("Month") == month))
+
         partition_path = output_path / str(year) / f"{month:02d}" / "orders.parquet"
         partition_path.parent.mkdir(parents=True, exist_ok=True)
         partition.write_parquet(partition_path)
         total_files += 1
         log(f"  Saved {year}/{month:02d} ({len(partition):,} rows)")
-    
+
     log(f"\n✅ Pipeline complete! {len(df_valid):,} rows → {total_files} files")
     return output_path
 
@@ -90,33 +93,47 @@ def run_etl(input_dir: str, output_dir: str, progress_callback=None):
 def generate_dashboard(data_dir: str, output_file: str = "dashboard.html"):
     """Generate the comparison dashboard HTML."""
     import polars as pl
-    
+
     path = Path(data_dir)
     all_files = list(path.glob("**/*.parquet"))
-    
+
     if not all_files:
         raise FileNotFoundError(f"No parquet files found in {data_dir}")
-    
+
     df = pl.concat([pl.read_parquet(f) for f in all_files])
-    
+
     # Calculate monthly metrics
-    monthly = df.group_by(["Year", "Month"]).agg([
-        pl.len().alias("total_orders"),
-        pl.col("Status").filter(pl.col("Status") == "Delivered").len().alias("delivered"),
-        pl.col("Status").filter(pl.col("Status") == "Cancel by cust.").len().alias("cancelled"),
-        pl.col("Status").filter(pl.col("Status") == "Returned").len().alias("returned"),
-        pl.col("Status").filter(pl.col("Status") == "Failed delivery").len().alias("failed"),
-    ]).sort(["Year", "Month"])
-    
-    monthly = monthly.with_columns([
-        (pl.col("delivered") / pl.col("total_orders") * 100).round(1).alias("delivery_rate"),
-        (pl.col("cancelled") / pl.col("total_orders") * 100).round(1).alias("cancel_rate"),
-    ])
-    
+    monthly = (
+        df.group_by(["Year", "Month"])
+        .agg(
+            [
+                pl.len().alias("total_orders"),
+                pl.col("Status").filter(pl.col("Status") == "Delivered").len().alias("delivered"),
+                pl.col("Status")
+                .filter(pl.col("Status") == "Cancel by cust.")
+                .len()
+                .alias("cancelled"),
+                pl.col("Status").filter(pl.col("Status") == "Returned").len().alias("returned"),
+                pl.col("Status")
+                .filter(pl.col("Status") == "Failed delivery")
+                .len()
+                .alias("failed"),
+            ]
+        )
+        .sort(["Year", "Month"])
+    )
+
+    monthly = monthly.with_columns(
+        [
+            (pl.col("delivered") / pl.col("total_orders") * 100).round(1).alias("delivery_rate"),
+            (pl.col("cancelled") / pl.col("total_orders") * 100).round(1).alias("cancel_rate"),
+        ]
+    )
+
     data_js = monthly.to_dicts()
-    
+
     # Dashboard HTML template
-    html_template = '''<!DOCTYPE html>
+    html_template = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -237,13 +254,13 @@ def generate_dashboard(data_dir: str, output_file: str = "dashboard.html"):
         updateDashboard();
     </script>
 </body>
-</html>'''
-    
-    html_content = html_template.replace('DATA_PLACEHOLDER', json.dumps(data_js))
-    
-    with open(output_file, 'w', encoding='utf-8') as f:
+</html>"""
+
+    html_content = html_template.replace("DATA_PLACEHOLDER", json.dumps(data_js))
+
+    with open(output_file, "w", encoding="utf-8") as f:
         f.write(html_content)
-    
+
     return output_file
 
 
@@ -251,61 +268,78 @@ def generate_dashboard(data_dir: str, output_file: str = "dashboard.html"):
 # GUI APPLICATION
 # ============================================================
 
+
 class DataPipelineApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Shopee Data Pipeline")
         self.root.geometry("600x500")
         self.root.configure(bg="#1a1a2e")
-        
+
         # Variables
         self.input_dir = tk.StringVar()
         self.output_dir = tk.StringVar(value=str(Path.home() / "ShopeeData" / "processed"))
-        
+
         self.setup_ui()
-    
+
     def setup_ui(self):
         # Title
         title = tk.Label(
-            self.root, 
+            self.root,
             text="🛒 Shopee Data Pipeline",
             font=("Segoe UI", 20, "bold"),
             bg="#1a1a2e",
-            fg="white"
+            fg="white",
         )
         title.pack(pady=20)
-        
+
         # Input folder
         frame1 = tk.Frame(self.root, bg="#1a1a2e")
         frame1.pack(fill="x", padx=40, pady=10)
-        
-        tk.Label(frame1, text="Input Folder (Excel files):", bg="#1a1a2e", fg="#888", font=("Segoe UI", 10)).pack(anchor="w")
-        
+
+        tk.Label(
+            frame1,
+            text="Input Folder (Excel files):",
+            bg="#1a1a2e",
+            fg="#888",
+            font=("Segoe UI", 10),
+        ).pack(anchor="w")
+
         input_frame = tk.Frame(frame1, bg="#1a1a2e")
         input_frame.pack(fill="x", pady=5)
-        
-        self.input_entry = tk.Entry(input_frame, textvariable=self.input_dir, font=("Segoe UI", 11), width=45)
+
+        self.input_entry = tk.Entry(
+            input_frame, textvariable=self.input_dir, font=("Segoe UI", 11), width=45
+        )
         self.input_entry.pack(side="left", fill="x", expand=True)
-        
-        tk.Button(input_frame, text="Browse", command=self.browse_input, font=("Segoe UI", 10)).pack(side="right", padx=(10, 0))
-        
+
+        tk.Button(
+            input_frame, text="Browse", command=self.browse_input, font=("Segoe UI", 10)
+        ).pack(side="right", padx=(10, 0))
+
         # Output folder
         frame2 = tk.Frame(self.root, bg="#1a1a2e")
         frame2.pack(fill="x", padx=40, pady=10)
-        
-        tk.Label(frame2, text="Output Folder:", bg="#1a1a2e", fg="#888", font=("Segoe UI", 10)).pack(anchor="w")
-        
+
+        tk.Label(
+            frame2, text="Output Folder:", bg="#1a1a2e", fg="#888", font=("Segoe UI", 10)
+        ).pack(anchor="w")
+
         output_frame = tk.Frame(frame2, bg="#1a1a2e")
         output_frame.pack(fill="x", pady=5)
-        
-        self.output_entry = tk.Entry(output_frame, textvariable=self.output_dir, font=("Segoe UI", 11), width=45)
+
+        self.output_entry = tk.Entry(
+            output_frame, textvariable=self.output_dir, font=("Segoe UI", 11), width=45
+        )
         self.output_entry.pack(side="left", fill="x", expand=True)
-        
-        tk.Button(output_frame, text="Browse", command=self.browse_output, font=("Segoe UI", 10)).pack(side="right", padx=(10, 0))
-        
+
+        tk.Button(
+            output_frame, text="Browse", command=self.browse_output, font=("Segoe UI", 10)
+        ).pack(side="right", padx=(10, 0))
+
         # Run button
         self.run_btn = tk.Button(
-            self.root, 
+            self.root,
             text="▶ Run Pipeline",
             command=self.run_pipeline,
             font=("Segoe UI", 12, "bold"),
@@ -313,26 +347,23 @@ class DataPipelineApp:
             fg="white",
             padx=30,
             pady=10,
-            cursor="hand2"
+            cursor="hand2",
         )
         self.run_btn.pack(pady=20)
-        
+
         # Progress log
         log_frame = tk.Frame(self.root, bg="#1a1a2e")
         log_frame.pack(fill="both", expand=True, padx=40, pady=10)
-        
-        tk.Label(log_frame, text="Progress:", bg="#1a1a2e", fg="#888", font=("Segoe UI", 10)).pack(anchor="w")
-        
+
+        tk.Label(log_frame, text="Progress:", bg="#1a1a2e", fg="#888", font=("Segoe UI", 10)).pack(
+            anchor="w"
+        )
+
         self.log_text = tk.Text(
-            log_frame, 
-            height=12, 
-            bg="#16213e", 
-            fg="#e0e0e0",
-            font=("Consolas", 10),
-            wrap="word"
+            log_frame, height=12, bg="#16213e", fg="#e0e0e0", font=("Consolas", 10), wrap="word"
         )
         self.log_text.pack(fill="both", expand=True, pady=5)
-        
+
         # Dashboard button (initially hidden)
         self.dashboard_btn = tk.Button(
             self.root,
@@ -342,61 +373,61 @@ class DataPipelineApp:
             bg="#4a90a4",
             fg="white",
             padx=20,
-            pady=8
+            pady=8,
         )
         self.dashboard_path = None
-    
+
     def browse_input(self):
         folder = filedialog.askdirectory(title="Select folder with Excel files")
         if folder:
             self.input_dir.set(folder)
-    
+
     def browse_output(self):
         folder = filedialog.askdirectory(title="Select output folder")
         if folder:
             self.output_dir.set(folder)
-    
+
     def log(self, message):
         self.log_text.insert("end", message + "\n")
         self.log_text.see("end")
         self.root.update_idletasks()
-    
+
     def run_pipeline(self):
         if not self.input_dir.get():
             messagebox.showerror("Error", "Please select an input folder")
             return
-        
+
         self.run_btn.config(state="disabled", text="Running...")
         self.log_text.delete("1.0", "end")
-        
+
         def task():
             try:
                 # Run ETL
                 output_path = run_etl(
-                    self.input_dir.get(),
-                    self.output_dir.get(),
-                    progress_callback=self.log
+                    self.input_dir.get(), self.output_dir.get(), progress_callback=self.log
                 )
-                
+
                 # Generate dashboard
                 self.log("\n📊 Generating dashboard...")
                 dashboard_path = Path(self.output_dir.get()) / "dashboard.html"
                 generate_dashboard(str(output_path), str(dashboard_path))
                 self.dashboard_path = str(dashboard_path)
-                
+
                 self.log(f"✅ Dashboard saved to: {dashboard_path}")
-                
+
                 # Show dashboard button
                 self.root.after(0, lambda: self.dashboard_btn.pack(pady=10))
-                
+
             except Exception as e:
                 self.log(f"\n❌ Error: {str(e)}")
                 messagebox.showerror("Error", str(e))
             finally:
-                self.root.after(0, lambda: self.run_btn.config(state="normal", text="▶ Run Pipeline"))
-        
+                self.root.after(
+                    0, lambda: self.run_btn.config(state="normal", text="▶ Run Pipeline")
+                )
+
         threading.Thread(target=task, daemon=True).start()
-    
+
     def open_dashboard(self):
         if self.dashboard_path:
             webbrowser.open(f"file://{self.dashboard_path}")
@@ -404,10 +435,9 @@ class DataPipelineApp:
 
 def main():
     root = tk.Tk()
-    app = DataPipelineApp(root)
+    DataPipelineApp(root)
     root.mainloop()
 
 
 if __name__ == "__main__":
     main()
-

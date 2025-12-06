@@ -10,8 +10,8 @@ Standard Output Schema:
 - Year (Int32)
 - Month (Int32)
 """
-import polars as pl
 
+import polars as pl
 
 # Standard schema for processed data
 STANDARD_SCHEMA = {
@@ -33,7 +33,6 @@ STATUS_MAPPING = {
     "Done": "Delivered",
     "Success": "Delivered",
     "Giao thành công": "Delivered",
-    
     # Cancelled variants
     "Cancel by cust.": "Cancelled",
     "Cancelled": "Cancelled",
@@ -41,13 +40,11 @@ STATUS_MAPPING = {
     "Cancel": "Cancelled",
     "Cancelled by customer": "Cancelled",
     "Đã hủy": "Cancelled",
-    
     # Returned variants
     "Returned": "Returned",
     "Return": "Returned",
     "Refunded": "Returned",
     "Hoàn trả": "Returned",
-    
     # Failed variants
     "Failed delivery": "Failed",
     "Failed": "Failed",
@@ -59,9 +56,7 @@ STATUS_MAPPING = {
 def normalize_date(df: pl.DataFrame) -> pl.DataFrame:
     """Normalize Date column to Datetime type."""
     if "Date" in df.columns:
-        df = df.with_columns(
-            pl.col("Date").cast(pl.Datetime).alias("Date")
-        )
+        df = df.with_columns(pl.col("Date").cast(pl.Datetime).alias("Date"))
     return df
 
 
@@ -69,7 +64,7 @@ def normalize_status(df: pl.DataFrame) -> pl.DataFrame:
     """Normalize status values to standard categories."""
     if "Status" not in df.columns:
         return df
-    
+
     df = df.with_columns(
         pl.col("Status")
         .map_elements(lambda x: STATUS_MAPPING.get(x, x) if x else None, return_dtype=pl.Utf8)
@@ -82,11 +77,13 @@ def add_year_month(df: pl.DataFrame) -> pl.DataFrame:
     """Add Year and Month columns from Date."""
     if "Date" not in df.columns:
         return df
-    
-    return df.with_columns([
-        pl.col("Date").dt.year().cast(pl.Int32).alias("Year"),
-        pl.col("Date").dt.month().cast(pl.Int32).alias("Month"),
-    ])
+
+    return df.with_columns(
+        [
+            pl.col("Date").dt.year().cast(pl.Int32).alias("Year"),
+            pl.col("Date").dt.month().cast(pl.Int32).alias("Month"),
+        ]
+    )
 
 
 def ensure_source(df: pl.DataFrame, source_name: str) -> pl.DataFrame:
@@ -98,12 +95,12 @@ def ensure_source(df: pl.DataFrame, source_name: str) -> pl.DataFrame:
 
 def clean_strings(df: pl.DataFrame) -> pl.DataFrame:
     """Strip whitespace from string columns."""
-    string_cols = [col for col, dtype in zip(df.columns, df.dtypes) if dtype == pl.Utf8]
-    
+    string_cols = [
+        col for col, dtype in zip(df.columns, df.dtypes, strict=False) if dtype == pl.Utf8
+    ]
+
     if string_cols:
-        df = df.with_columns([
-            pl.col(col).str.strip_chars() for col in string_cols
-        ])
+        df = df.with_columns([pl.col(col).str.strip_chars() for col in string_cols])
     return df
 
 
@@ -115,7 +112,7 @@ def drop_empty_rows(df: pl.DataFrame) -> pl.DataFrame:
 def normalize_dataframe(df: pl.DataFrame, source_name: str) -> pl.DataFrame:
     """
     Apply all normalizations to a DataFrame.
-    
+
     Steps:
     1. Normalize Date to Datetime
     2. Ensure Source column
@@ -130,17 +127,17 @@ def normalize_dataframe(df: pl.DataFrame, source_name: str) -> pl.DataFrame:
     df = normalize_status(df)
     df = add_year_month(df)
     df = drop_empty_rows(df)
-    
+
     return df
 
 
 def run_transforms(dataframes: dict[str, pl.DataFrame]) -> dict[str, pl.DataFrame]:
     """
     Main transform function for multi-source data.
-    
+
     Args:
         dataframes: Dict of {source_name: DataFrame}
-    
+
     Returns:
         Dict with:
         - Individual source DataFrames (normalized)
@@ -148,19 +145,19 @@ def run_transforms(dataframes: dict[str, pl.DataFrame]) -> dict[str, pl.DataFram
     """
     results = {}
     all_dfs = []
-    
+
     for source_name, df in dataframes.items():
         print(f"  Normalizing {source_name}...")
         normalized = normalize_dataframe(df, source_name)
         results[source_name.lower().replace(" ", "_")] = normalized
         all_dfs.append(normalized)
-    
+
     # Combine all sources
     if all_dfs:
         combined = pl.concat(all_dfs, how="diagonal")
         results["all_sources"] = combined
         print(f"  ✅ Combined all sources: {len(combined):,} rows")
-    
+
     return results
 
 
@@ -168,10 +165,9 @@ def run_transforms(dataframes: dict[str, pl.DataFrame]) -> dict[str, pl.DataFram
 # UTILITY FUNCTIONS (for custom transforms)
 # ============================================================
 
+
 def aggregate(
-    df: pl.DataFrame,
-    group_by: str | list[str],
-    aggregations: dict[str, str]
+    df: pl.DataFrame, group_by: str | list[str], aggregations: dict[str, str]
 ) -> pl.DataFrame:
     """Aggregate data by specified columns."""
     agg_map = {
@@ -183,7 +179,7 @@ def aggregate(
         "first": pl.first,
         "last": pl.last,
     }
-    
+
     agg_exprs = []
     for col, func_name in aggregations.items():
         func = agg_map.get(func_name)
@@ -192,15 +188,12 @@ def aggregate(
                 agg_exprs.append(func().alias(f"{col}_{func_name}"))
             else:
                 agg_exprs.append(func(col).alias(f"{col}_{func_name}"))
-    
+
     return df.group_by(group_by).agg(agg_exprs)
 
 
 def join_dataframes(
-    left: pl.DataFrame,
-    right: pl.DataFrame,
-    on: str | list[str],
-    how: str = "left"
+    left: pl.DataFrame, right: pl.DataFrame, on: str | list[str], how: str = "left"
 ) -> pl.DataFrame:
     """Join two DataFrames."""
     return left.join(right, on=on, how=how)
