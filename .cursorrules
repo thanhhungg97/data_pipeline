@@ -1,58 +1,101 @@
+# Shopee Data Pipeline - Cursor Rules
 
-    You are an expert in data analysis, visualization, and Jupyter Notebook development, with a focus on Python libraries such as pandas, matplotlib, seaborn, and numpy.
-  
-    Key Principles:
-    - Write concise, technical responses with accurate Python examples.
-    - Prioritize readability and reproducibility in data analysis workflows.
-    - Use functional programming where appropriate; avoid unnecessary classes.
-    - Prefer vectorized operations over explicit loops for better performance.
-    - Use descriptive variable names that reflect the data they contain.
-    - Follow PEP 8 style guidelines for Python code.
+You are an expert in data engineering, ETL pipelines, and Python development with Polars.
 
-    Data Analysis and Manipulation:
-    - Use pandas for data manipulation and analysis.
-    - Prefer method chaining for data transformations when possible.
-    - Use loc and iloc for explicit data selection.
-    - Utilize groupby operations for efficient data aggregation.
+## Tech Stack
+- **Python 3.11+**
+- **Polars** - DataFrame library (NOT pandas)
+- **FastExcel/OpenPyXL** - Excel reading
+- **Plotly** - Interactive charts
+- **Tkinter** - GUI (built-in, no extra deps)
+- **PyInstaller** - Windows exe builds
 
-    Visualization:
-    - Use matplotlib for low-level plotting control and customization.
-    - Use seaborn for statistical visualizations and aesthetically pleasing defaults.
-    - Create informative and visually appealing plots with proper labels, titles, and legends.
-    - Use appropriate color schemes and consider color-blindness accessibility.
+## Key Principles
+- Write concise, technical responses with accurate Python examples.
+- Prioritize readability and reproducibility in data pipelines.
+- Use functional programming where appropriate; avoid unnecessary classes.
+- Prefer vectorized operations over explicit loops for better performance.
+- Use descriptive variable names that reflect the data they contain.
+- Follow PEP 8 style guidelines for Python code.
 
-    Jupyter Notebook Best Practices:
-    - Structure notebooks with clear sections using markdown cells.
-    - Use meaningful cell execution order to ensure reproducibility.
-    - Include explanatory text in markdown cells to document analysis steps.
-    - Keep code cells focused and modular for easier understanding and debugging.
-    - Use magic commands like %matplotlib inline for inline plotting.
+## Polars Best Practices
+- Use `pl.len()` instead of deprecated `pl.count()`
+- Prefer lazy evaluation with `scan_*` and `.collect()` for large datasets
+- Use method chaining for data transformations
+- Use `pl.col("name")` for column selection, not `df["name"]`
+- Use `.filter()` instead of boolean indexing
+- Use `.with_columns()` to add/modify columns
+- Use `.group_by().agg()` for aggregations
 
-    Error Handling and Data Validation:
-    - Implement data quality checks at the beginning of analysis.
-    - Handle missing data appropriately (imputation, removal, or flagging).
-    - Use try-except blocks for error-prone operations, especially when reading external data.
-    - Validate data types and ranges to ensure data integrity.
+## Polars Syntax Examples
+```python
+# Read and transform
+df = pl.read_parquet("data.parquet")
+df = pl.scan_parquet("data/*.parquet").collect()  # lazy, for large data
 
-    Performance Optimization:
-    - Use vectorized operations in pandas and numpy for improved performance.
-    - Utilize efficient data structures (e.g., categorical data types for low-cardinality string columns).
-    - Consider using dask for larger-than-memory datasets.
-    - Profile code to identify and optimize bottlenecks.
+# Filter
+df.filter(pl.col("status") == "Delivered")
+df.filter(pl.col("amount") > 100)
 
-    Dependencies:
-    - pandas
-    - numpy
-    - matplotlib
-    - seaborn
-    - jupyter
-    - scikit-learn (for machine learning tasks)
+# Add columns
+df.with_columns([
+    pl.col("date").dt.year().alias("year"),
+    (pl.col("price") * pl.col("qty")).alias("total")
+])
 
-    Key Conventions:
-    1. Begin analysis with data exploration and summary statistics.
-    2. Create reusable plotting functions for consistent visualizations.
-    3. Document data sources, assumptions, and methodologies clearly.
-    4. Use version control (e.g., git) for tracking changes in notebooks and scripts.
+# Aggregations
+df.group_by("region").agg([
+    pl.len().alias("count"),
+    pl.sum("amount").alias("total_amount"),
+    pl.mean("price").alias("avg_price")
+])
 
-    Refer to the official documentation of pandas, matplotlib, and Jupyter for best practices and up-to-date APIs.
-      
+# Join
+df1.join(df2, on="customer_id", how="left")
+```
+
+## Data Schema
+The Shopee order data has these columns:
+- Date (datetime)
+- Source (string) - "Shopee"
+- Order ID (string)
+- Status (string) - "Delivered", "Cancel by cust.", "Returned", "Failed delivery"
+- Reason cancelled (string)
+- Refund/ Exchange status (string)
+- Refund/ Exchange reason (string)
+- Region, City, Payment method (mostly null)
+- Platform (string) - "MKP"
+- Year, Month (int) - added by transform
+
+## File Structure
+```
+├── main.py              # CLI entry point
+├── app_gui.py           # Windows GUI app (standalone, embedded ETL)
+├── src/
+│   ├── extract.py       # Read Excel files
+│   ├── transform.py     # Data transformations
+│   └── load.py          # Save to Parquet (partitioned by year/month)
+├── visualize.py         # Basic dashboard
+├── dashboard_compare.py # Comparison dashboard with MoM/YoY
+├── config.yaml          # Pipeline config
+└── .github/workflows/   # CI/CD
+```
+
+## Dashboard Requirements
+- Dark theme (bg: #1a1a2e)
+- Show percentages prominently, counts secondary
+- Month selector dropdown
+- Compare: current month vs last month vs same month last year
+- Color coding: green = good (delivery), red = bad (cancellation)
+
+## When Modifying
+- Keep app_gui.py self-contained (embedded ETL logic) for PyInstaller
+- Test locally before pushing (python main.py, python app_gui.py)
+- Update VERSION file when releasing
+- Tag releases as v1.0.0, v1.1.0, etc.
+
+## Don't
+- Don't use pandas - use Polars instead
+- Don't use `pl.count()` - use `pl.len()` instead
+- Don't add heavy dependencies (keep exe size reasonable)
+- Don't commit data files (*.xlsx, *.parquet, data/)
