@@ -69,16 +69,24 @@ The Shopee order data has these columns:
 
 ## File Structure
 ```
-├── main.py              # CLI entry point
-├── app_gui.py           # Windows GUI app (standalone, embedded ETL)
+├── main.py                 # CLI entry point
+├── app_gui.py              # Windows GUI app (standalone, embedded ETL)
 ├── src/
-│   ├── extract.py       # Read Excel files
-│   ├── transform.py     # Data transformations
-│   └── load.py          # Save to Parquet (partitioned by year/month)
-├── visualize.py         # Basic dashboard
-├── dashboard_compare.py # Comparison dashboard with MoM/YoY
-├── config.yaml          # Pipeline config
-└── .github/workflows/   # CI/CD
+│   ├── __init__.py
+│   ├── extract.py          # Read Excel files
+│   ├── transform.py        # Data transformations
+│   └── load.py             # Save to Parquet (partitioned by year/month)
+├── visualize.py            # Basic dashboard
+├── dashboard_compare.py    # Comparison dashboard with MoM/YoY
+├── config.yaml             # Pipeline config
+├── requirements.txt        # Python dependencies
+├── VERSION                 # Current version number
+├── build_exe.py            # PyInstaller build script
+├── BUILD_WINDOWS.md        # Windows build instructions
+├── .github/workflows/      # CI/CD (build.yml)
+└── data/
+    ├── raw/                # Input Excel files (gitignored)
+    └── processed/          # Output: year/month/orders.parquet (gitignored)
 ```
 
 ## Dashboard Requirements
