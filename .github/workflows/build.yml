@@ -1,0 +1,97 @@
+name: Build Windows EXE
+
+on:
+  # Build on push to main or version tags
+  push:
+    branches: [main]
+    tags:
+      - 'v*'  # v1.0.0, v1.1.0, etc.
+  
+  # Manual trigger from GitHub UI
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: false
+        default: 'dev'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller polars fastexcel openpyxl
+      
+      - name: Get version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+          elif [[ "${{ github.event.inputs.version }}" != "" && "${{ github.event.inputs.version }}" != "dev" ]]; then
+            VERSION="v${{ github.event.inputs.version }}"
+          else
+            VERSION="dev-$(git rev-parse --short HEAD)"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+      
+      - name: Build EXE
+        run: |
+          pyinstaller --onefile --windowed --name "ShopeeDataPipeline-${{ steps.version.outputs.version }}" app_gui.py
+      
+      - name: Upload artifact (for all builds)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShopeeDataPipeline-${{ steps.version.outputs.version }}
+          path: dist/*.exe
+          retention-days: 30
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    # Only create release for version tags
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ShopeeDataPipeline-${{ github.ref_name }}
+          path: dist/
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Shopee Data Pipeline ${{ github.ref_name }}
+          body: |
+            ## Shopee Data Pipeline ${{ github.ref_name }}
+            
+            ### 📥 Download
+            Download `ShopeeDataPipeline-${{ github.ref_name }}.exe` below.
+            
+            ### 🚀 Usage
+            1. Double-click the .exe file
+            2. Select your Excel files folder
+            3. Click "Run Pipeline"
+            4. View the dashboard!
+            
+            No installation required - just run the exe!
+          files: dist/*.exe
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
