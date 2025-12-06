@@ -73,6 +73,15 @@ function App() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Check for embedded data first (for file:// protocol, no CORS)
+    const embeddedData = (window as unknown as { __DASHBOARD_DATA__?: DashboardData }).__DASHBOARD_DATA__;
+    if (embeddedData) {
+      setData(embeddedData);
+      setLoading(false);
+      return;
+    }
+
+    // Fallback to fetch for dev server
     fetch('/data.json')
       .then(res => res.json())
       .then(json => { setData(json); setLoading(false); })

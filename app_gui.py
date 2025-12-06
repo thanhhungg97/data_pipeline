@@ -34,7 +34,7 @@ def resource_path(relative_path):
 
 sys.path.insert(0, resource_path("."))
 
-from src.etl.pipeline import run_simple_etl  # noqa: E402
+from src.etl.pipeline import run_simple_etl_files  # noqa: E402, F401
 
 # ============================================================
 # MULTI-SOURCE ETL
@@ -78,26 +78,31 @@ def run_multi_source_etl(
 
     for i, source in enumerate(sources, 1):
         name = source["name"]
-        path = source["path"]
+        path = source.get("path", "")
+        files = source.get("files", [])
 
         update_source(name, "processing")
         log(f"\n{'─' * 40}")
         log(f"📂 [{i}/{len(sources)}] {name}")
-        log(f"   {path}")
 
         try:
-            if not os.path.isdir(path):
-                raise FileNotFoundError(f"Directory not found: {path}")
+            # Get files either from selection or from folder
+            if files:
+                excel_files = [Path(f) for f in files if os.path.exists(f)]
+                log(f"   {len(excel_files)} selected files")
+            elif path and os.path.isdir(path):
+                excel_files = list(Path(path).glob("*.xlsx")) + list(Path(path).glob("*.xls"))
+                log(f"   Folder: {path}")
+                log(f"   Found {len(excel_files)} file(s)")
+            else:
+                raise FileNotFoundError("No files or folder selected")
 
-            excel_files = list(Path(path).glob("*.xlsx")) + list(Path(path).glob("*.xls"))
             if not excel_files:
-                raise FileNotFoundError(f"No Excel files in: {path}")
-
-            log(f"   Found {len(excel_files)} file(s)")
+                raise FileNotFoundError("No valid Excel files found")
 
             source_output = output_path / name.lower().replace(" ", "_")
-            etl_result = run_simple_etl(
-                input_dir=path,
+            etl_result = run_simple_etl_files(
+                files=excel_files,
                 output_dir=str(source_output),
                 config_path=config_path,
                 progress_callback=log,
@@ -286,17 +291,18 @@ def export_data_json(data_dir: str) -> str:
         "reasons": [],
     }
 
+    # Also write to file for reference
     output_path = Path(data_dir) / "dashboard" / "data.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f)
 
-    return str(output_path)
+    return data  # Return data dict for embedding
 
 
-def deploy_react_dashboard(output_dir: str) -> str:
-    """Copy bundled React dashboard to output directory."""
+def deploy_react_dashboard(output_dir: str, data: dict) -> str:
+    """Create standalone HTML dashboard with embedded data (no CORS issues)."""
     bundled_dist = resource_path("dashboard_dist")
     local_dist = resource_path("dashboard/dist")
 
@@ -314,7 +320,19 @@ def deploy_react_dashboard(output_dir: str) -> str:
         shutil.rmtree(dest_dir)
 
     shutil.copytree(src_dir, dest_dir)
-    return str(dest_dir / "index.html")
+
+    # Embed data directly in HTML to avoid CORS issues with file:// protocol
+    index_path = dest_dir / "index.html"
+    if index_path.exists():
+        html_content = index_path.read_text(encoding="utf-8")
+
+        # Inject data as a global variable before other scripts
+        data_script = f"<script>window.__DASHBOARD_DATA__ = {json.dumps(data)};</script>"
+        html_content = html_content.replace("<head>", f"<head>\n{data_script}")
+
+        index_path.write_text(html_content, encoding="utf-8")
+
+    return str(index_path)
 
 
 # ============================================================
@@ -338,6 +356,7 @@ class SourceCard(ctk.CTkFrame):
         self.on_remove = on_remove
         self.card_id = card_id
         self.status = "pending"
+        self.selected_files = []  # Store selected files
 
         # Main container
         self.grid_columnconfigure(1, weight=1)
@@ -378,65 +397,95 @@ class SourceCard(ctk.CTkFrame):
         )
         remove_btn.grid(row=0, column=1)
 
-        # Path row
-        path_frame = ctk.CTkFrame(content, fg_color="transparent")
-        path_frame.grid(row=1, column=0, sticky="ew", pady=(8, 0))
-        path_frame.grid_columnconfigure(0, weight=1)
-
+        # Path/Files display
         self.path_var = ctk.StringVar()
         self.path_entry = ctk.CTkEntry(
-            path_frame,
+            content,
             textvariable=self.path_var,
-            placeholder_text="Select folder with Excel files...",
+            placeholder_text="Select folder or files...",
             height=36,
+            state="readonly",
         )
-        self.path_entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
+        self.path_entry.grid(row=1, column=0, sticky="ew", pady=(8, 0))
 
-        browse_btn = ctk.CTkButton(
-            path_frame,
-            text="Browse",
-            width=80,
-            height=36,
+        # Button row - Folder and Files buttons
+        btn_frame = ctk.CTkFrame(content, fg_color="transparent")
+        btn_frame.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+
+        ctk.CTkButton(
+            btn_frame,
+            text="📁 Folder",
+            width=90,
+            height=32,
             corner_radius=8,
-            command=self._browse,
-        )
-        browse_btn.grid(row=0, column=1)
+            fg_color="#374151",
+            hover_color="#4b5563",
+            command=self._browse_folder,
+        ).pack(side="left", padx=(0, 8))
+
+        ctk.CTkButton(
+            btn_frame,
+            text="📄 Files",
+            width=90,
+            height=32,
+            corner_radius=8,
+            fg_color="#374151",
+            hover_color="#4b5563",
+            command=self._browse_files,
+        ).pack(side="left")
 
         # File count label
         self.file_label = ctk.CTkLabel(
             content,
-            text="No folder selected",
+            text="No files selected",
             font=ctk.CTkFont(size=12),
             text_color="#6b7280",
         )
-        self.file_label.grid(row=2, column=0, sticky="w", pady=(4, 0))
+        self.file_label.grid(row=3, column=0, sticky="w", pady=(4, 0))
 
-        self.path_var.trace_add("write", self._on_path_change)
-
-    def _browse(self):
+    def _browse_folder(self):
         from tkinter import filedialog
 
         folder = filedialog.askdirectory(title=f"Select folder for {self.name_var.get()}")
         if folder:
-            self.path_var.set(folder)
+            files = list(Path(folder).glob("*.xlsx")) + list(Path(folder).glob("*.xls"))
+            if files:
+                self.selected_files = [str(f) for f in files]
+                self.path_var.set(folder)
+                self.file_label.configure(text=f"📁 {len(files)} Excel files", text_color="#10b981")
+            else:
+                self.file_label.configure(text="⚠️ No Excel files in folder", text_color="#eab308")
 
-    def _on_path_change(self, *args):
-        path = self.path_var.get()
-        if path and os.path.isdir(path):
-            files = list(Path(path).glob("*.xlsx")) + list(Path(path).glob("*.xls"))
-            self.file_label.configure(text=f"📁 {len(files)} Excel files", text_color="#10b981")
-        else:
-            self.file_label.configure(text="No folder selected", text_color="#6b7280")
+    def _browse_files(self):
+        from tkinter import filedialog
+
+        files = filedialog.askopenfilenames(
+            title=f"Select Excel files for {self.name_var.get()}",
+            filetypes=[("Excel files", "*.xlsx *.xls"), ("All files", "*.*")],
+        )
+        if files:
+            self.selected_files = list(files)
+            # Show first file's directory
+            first_dir = str(Path(files[0]).parent)
+            self.path_var.set(f"{first_dir} ({len(files)} files)")
+            self.file_label.configure(text=f"📄 {len(files)} files selected", text_color="#10b981")
 
     def _remove(self):
         self.on_remove(self.card_id)
 
     def get_source(self) -> dict:
-        return {"name": self.name_var.get(), "path": self.path_var.get()}
+        return {
+            "name": self.name_var.get(),
+            "path": self.path_var.get(),
+            "files": self.selected_files,
+        }
 
-    def set_source(self, name: str, path: str):
+    def set_source(self, name: str, path: str, files: list = None):
         self.name_var.set(name)
         self.path_var.set(path)
+        if files:
+            self.selected_files = files
+            self.file_label.configure(text=f"📄 {len(files)} files", text_color="#10b981")
 
     def set_status(self, status: str):
         self.status = status
@@ -743,17 +792,19 @@ class DataPipelineApp(ctk.CTk):
                     self.log("\n📊 Generating dashboard...")
 
                     try:
-                        export_data_json(self.output_var.get())
-                    except Exception as e:
-                        self.log(f"⚠️ Export warning: {str(e)}")
+                        # Get dashboard data
+                        dashboard_data = export_data_json(self.output_var.get())
 
-                    try:
-                        dashboard_html = deploy_react_dashboard(self.output_var.get())
+                        # Deploy with embedded data (no CORS issues)
+                        dashboard_html = deploy_react_dashboard(
+                            self.output_var.get(), dashboard_data
+                        )
                         if dashboard_html:
                             self.dashboard_path = dashboard_html
                             self.log("✅ Dashboard ready!")
                         else:
                             self.dashboard_path = None
+                            self.log("⚠️ React dashboard not available")
                     except Exception as e:
                         self.dashboard_path = None
                         self.log(f"⚠️ Dashboard: {str(e)}")

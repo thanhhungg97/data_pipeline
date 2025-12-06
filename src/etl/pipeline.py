@@ -247,6 +247,138 @@ def load_config(config_path: str = "config.yaml") -> dict:
         }
 
 
+def run_simple_etl_files(
+    files: list,
+    output_dir: str,
+    config_path: str = "config.yaml",
+    progress_callback: Callable[[str], None] = None,
+) -> dict:
+    """Run simplified ETL pipeline for a list of files.
+
+    Args:
+        files: List of Path objects or file paths
+        output_dir: Directory to write processed parquet files
+        config_path: Path to config.yaml
+        progress_callback: Optional callback for progress messages
+
+    Returns:
+        Dict with results (row counts, output path, etc.)
+    """
+
+    def log(msg: str):
+        if progress_callback:
+            progress_callback(msg)
+        else:
+            print(msg)
+
+    output_path = Path(output_dir)
+    config = load_config(config_path)
+    status_mapping = config.get("status_mapping", {})
+
+    excel_files = [Path(f) if isinstance(f, str) else f for f in files]
+
+    if not excel_files:
+        raise FileNotFoundError("No Excel files provided")
+
+    dataframes = []
+    file_errors = []
+    files_loaded = 0
+
+    for file in excel_files:
+        log(f"  📄 {file.name}...")
+        try:
+            df = pl.read_excel(file)
+
+            if df.is_empty():
+                file_errors.append({"file": file.name, "error": "File is empty"})
+                log("     ⚠️ Empty file, skipped")
+                continue
+
+            if "Date" in df.columns:
+                df = _parse_date_column(df)
+                if df["Date"].null_count() > len(df) * 0.5:
+                    file_errors.append(
+                        {
+                            "file": file.name,
+                            "error": f"Date parsing failed for {df['Date'].null_count()}/{len(df)} rows",
+                            "warning": True,
+                        }
+                    )
+                    log(f"     ⚠️ {df['Date'].null_count()} rows with invalid dates")
+
+            dataframes.append(df)
+            files_loaded += 1
+            log(f"     ✓ {len(df):,} rows")
+
+        except Exception as e:
+            error_msg = str(e)
+            if "password" in error_msg.lower():
+                error_msg = "File is password protected"
+            elif "Invalid file" in error_msg or "not a valid" in error_msg.lower():
+                error_msg = "Invalid Excel format"
+
+            file_errors.append({"file": file.name, "error": error_msg})
+            log(f"     ❌ Error: {error_msg}")
+
+    if files_loaded == 0:
+        error_summary = "\n".join(f"  • {e['file']}: {e['error']}" for e in file_errors)
+        raise ValueError(f"All files failed to load:\n{error_summary}")
+
+    if file_errors:
+        warning_count = sum(1 for e in file_errors if e.get("warning"))
+        error_count = len(file_errors) - warning_count
+        if error_count > 0:
+            log(f"⚠️ {error_count} file(s) failed, {files_loaded} loaded successfully")
+    else:
+        log(f"✅ Loaded {files_loaded} files")
+
+    # Transform
+    log("🔄 Transforming data...")
+    combined = pl.concat(dataframes, how="diagonal")
+
+    if "Date" in combined.columns:
+        combined = combined.with_columns(
+            [
+                pl.col("Date").dt.year().alias("Year"),
+                pl.col("Date").dt.month().alias("Month"),
+            ]
+        )
+
+    if "Status" in combined.columns:
+        combined = combined.with_columns(
+            pl.col("Status")
+            .map_elements(
+                lambda x: status_mapping.get(x, x) if x else None,
+                return_dtype=pl.Utf8,
+            )
+            .alias("Status_Normalized")
+        )
+
+    log(f"✅ Combined {len(combined):,} rows")
+
+    # Load
+    log("💾 Saving partitioned files...")
+    total_saved = save_partitioned(combined, output_path)
+
+    null_dates = (
+        combined.filter(pl.col("Year").is_null()).height if "Year" in combined.columns else 0
+    )
+    if null_dates > 0:
+        log(f"⚠️ {null_dates:,} rows with missing dates (excluded)")
+
+    log(f"✅ Complete! {total_saved:,} rows saved")
+
+    return {
+        "input_files": len(excel_files),
+        "files_loaded": files_loaded,
+        "file_errors": file_errors,
+        "total_rows": len(combined),
+        "saved_rows": total_saved,
+        "null_dates": null_dates,
+        "output_dir": str(output_path),
+    }
+
+
 def run_simple_etl(
     input_dir: str,
     output_dir: str,
