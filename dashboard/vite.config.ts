@@ -7,29 +7,18 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    // Optimize chunk size
-    chunkSizeWarningLimit: 500,
+    chunkSizeWarningLimit: 600,
+    // Use esbuild (faster, smaller than terser)
+    minify: 'esbuild',
     rollupOptions: {
       output: {
-        // Split vendor chunks for better caching
-        manualChunks: {
-          // React core
-          'react-vendor': ['react', 'react-dom'],
-          // Routing
-          'router': ['react-router-dom'],
-          // Charts (largest dependency)
-          'charts': ['recharts'],
-          // UI components
-          'ui': ['react-select'],
+        // Combine everything into fewer files for smaller total size
+        manualChunks: (id) => {
+          // Bundle all node_modules into vendor chunk
+          if (id.includes('node_modules')) {
+            return 'vendor';
+          }
         },
-      },
-    },
-    // Better minification
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true,  // Remove console.log in production
-        drop_debugger: true,
       },
     },
   },
