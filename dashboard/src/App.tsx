@@ -1,10 +1,22 @@
-import { useState, useEffect, useMemo } from 'react';
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
-import Select from 'react-select';
 import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
 } from 'recharts';
+import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+
+import Select from 'react-select';
 
 // Types
 interface MonthlyData {
