@@ -25,16 +25,5 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Check HTML/CSS with prettier (optional)
-if command -v npx &> /dev/null; then
-    echo "🎨 Checking HTML/CSS formatting..."
-    npx prettier --check "templates/*.html" "templates/*.css" 2>/dev/null
-    if [ $? -ne 0 ]; then
-        echo "⚠️  HTML/CSS not formatted. Format with: npx prettier --write 'templates/*.html' 'templates/*.css'"
-        # Warning only, don't block push
-    fi
-fi
-
 echo "✅ All pre-push checks passed!"
 exit 0
-
