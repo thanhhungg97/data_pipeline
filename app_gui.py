@@ -96,7 +96,7 @@ def run_multi_source_etl(
             log(f"   Found {len(excel_files)} file(s)")
 
             source_output = output_path / name.lower().replace(" ", "_")
-            run_simple_etl(
+            etl_result = run_simple_etl(
                 input_dir=path,
                 output_dir=str(source_output),
                 config_path=config_path,
@@ -112,9 +112,21 @@ def run_multi_source_etl(
             else:
                 rows = 0
 
-            update_source(name, "done")
-            log(f"✅ {name}: {rows:,} rows")
-            results["successful"].append(name)
+            # Check for file-level errors/warnings
+            file_errors = etl_result.get("file_errors", [])
+            has_errors = any(not e.get("warning") for e in file_errors)
+
+            if has_errors:
+                update_source(name, "warning")
+                log(f"⚠️ {name}: {rows:,} rows (with warnings)")
+                results["successful"].append(name)
+                results["warnings"] = results.get("warnings", {})
+                results["warnings"][name] = file_errors
+            else:
+                update_source(name, "done")
+                log(f"✅ {name}: {rows:,} rows")
+                results["successful"].append(name)
+
             results["total_rows"] += rows
 
         except FileNotFoundError as e:
@@ -162,7 +174,22 @@ def run_multi_source_etl(
     log(f"\n{'═' * 40}")
     log("📊 SUMMARY")
     log(f"{'═' * 40}")
-    log(f"✅ Success: {len(results['successful'])}")
+
+    warnings = results.get("warnings", {})
+    success_clean = len([s for s in results["successful"] if s not in warnings])
+    success_warnings = len([s for s in results["successful"] if s in warnings])
+
+    if success_clean > 0:
+        log(f"✅ Success: {success_clean} source(s)")
+    if success_warnings > 0:
+        log(f"⚠️ With warnings: {success_warnings} source(s)")
+        for source_name, file_errors in warnings.items():
+            log(f"   {source_name}:")
+            for err in file_errors[:3]:  # Show first 3 errors
+                log(f"     • {err['file']}: {err['error']}")
+            if len(file_errors) > 3:
+                log(f"     ... and {len(file_errors) - 3} more")
+
     log(f"❌ Failed: {len(results['failed'])}")
     log(f"📁 Total: {results['total_rows']:,} rows")
 
@@ -302,6 +329,7 @@ class SourceCard(ctk.CTkFrame):
         "pending": "#6b7280",
         "processing": "#f59e0b",
         "done": "#10b981",
+        "warning": "#eab308",
         "error": "#ef4444",
     }
 

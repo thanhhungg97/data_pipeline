@@ -286,15 +286,65 @@ def run_simple_etl(
         raise FileNotFoundError(f"No Excel files found in {input_dir}")
 
     dataframes = []
-    for file in excel_files:
-        log(f"  Reading {file.name}...")
-        df = pl.read_excel(file)
-        # Parse date column with multiple format support
-        if "Date" in df.columns:
-            df = _parse_date_column(df)
-        dataframes.append(df)
+    file_errors = []
+    files_loaded = 0
 
-    log(f"✅ Loaded {len(excel_files)} files")
+    for file in excel_files:
+        log(f"  📄 {file.name}...")
+        try:
+            df = pl.read_excel(file)
+
+            # Validate required columns
+            if df.is_empty():
+                file_errors.append({"file": file.name, "error": "File is empty"})
+                log("     ⚠️ Empty file, skipped")
+                continue
+
+            # Parse date column with multiple format support
+            if "Date" in df.columns:
+                df = _parse_date_column(df)
+                # Check for parsing failures
+                if df["Date"].null_count() > len(df) * 0.5:
+                    file_errors.append(
+                        {
+                            "file": file.name,
+                            "error": f"Date parsing failed for {df['Date'].null_count()}/{len(df)} rows",
+                            "warning": True,
+                        }
+                    )
+                    log(f"     ⚠️ {df['Date'].null_count()} rows with invalid dates")
+
+            dataframes.append(df)
+            files_loaded += 1
+            log(f"     ✓ {len(df):,} rows")
+
+        except Exception as e:
+            error_msg = str(e)
+            # Simplify common error messages
+            if "No such file" in error_msg:
+                error_msg = "File not found or corrupted"
+            elif "password" in error_msg.lower():
+                error_msg = "File is password protected"
+            elif "Invalid file" in error_msg or "not a valid" in error_msg.lower():
+                error_msg = "Invalid Excel format"
+
+            file_errors.append({"file": file.name, "error": error_msg})
+            log(f"     ❌ Error: {error_msg}")
+
+    # Report file loading summary
+    if files_loaded == 0:
+        error_summary = "\n".join(f"  • {e['file']}: {e['error']}" for e in file_errors)
+        raise ValueError(f"All files failed to load:\n{error_summary}")
+
+    if file_errors:
+        warning_count = sum(1 for e in file_errors if e.get("warning"))
+        error_count = len(file_errors) - warning_count
+        if error_count > 0:
+            log(f"⚠️ {error_count} file(s) failed, {files_loaded} loaded successfully")
+        if warning_count > 0:
+            log(f"⚠️ {warning_count} file(s) have warnings")
+    else:
+        log(f"✅ Loaded {files_loaded} files")
 
     # ========== TRANSFORM ==========
     log("🔄 Transforming data...")
@@ -327,12 +377,22 @@ def run_simple_etl(
 
     total_saved = save_partitioned(combined, output_path)
 
+    # Report data quality issues
+    null_dates = (
+        combined.filter(pl.col("Year").is_null()).height if "Year" in combined.columns else 0
+    )
+    if null_dates > 0:
+        log(f"⚠️ {null_dates:,} rows with missing dates (excluded from output)")
+
     log(f"\n✅ Pipeline complete! {total_saved:,} rows saved")
 
     return {
         "input_files": len(excel_files),
+        "files_loaded": files_loaded,
+        "file_errors": file_errors,
         "total_rows": len(combined),
         "saved_rows": total_saved,
+        "null_dates": null_dates,
         "output_dir": str(output_path),
     }
 
