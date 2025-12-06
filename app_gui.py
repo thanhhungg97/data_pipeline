@@ -352,7 +352,9 @@ def deploy_react_dashboard(output_dir: str, data: dict) -> str:
 
         # Fix for file:// protocol: remove 'type="module"' and 'crossorigin'
         # These cause CORS errors when opening HTML directly from filesystem
-        html_content = html_content.replace(' type="module"', "")
+        # Add 'defer' so script waits for DOM (module scripts defer by default)
+        html_content = html_content.replace(' type="module" crossorigin', " defer")
+        html_content = html_content.replace(' type="module"', " defer")
         html_content = html_content.replace(" crossorigin", "")
 
         index_path.write_text(html_content, encoding="utf-8")
