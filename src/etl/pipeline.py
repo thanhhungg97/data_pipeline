@@ -186,40 +186,40 @@ class SimpleETLConfig:
     schema: dict
 
 
+DATE_FORMATS = [
+    "%m-%d-%y",  # 01-13-24
+    "%m/%d/%y",  # 01/13/24
+    "%Y-%m-%d",  # 2024-01-13
+    "%d-%m-%Y",  # 13-01-2024
+    "%m-%d-%Y",  # 01-13-2024
+]
+
+
 def _parse_date_column(df: pl.DataFrame) -> pl.DataFrame:
-    """Parse Date column with multiple format attempts."""
+    """Parse Date column to pl.Date. Raises on complete failure."""
     if "Date" not in df.columns:
         return df
 
-    # If already datetime/date, return as-is
-    if df["Date"].dtype in (pl.Datetime, pl.Date):
+    dtype = df["Date"].dtype
+
+    # Already date - nothing to do
+    if dtype == pl.Date:
         return df
 
-    # Try different date formats for string columns
-    date_formats = [
-        "%m-%d-%y",  # 01-13-24
-        "%m/%d/%y",  # 01/13/24
-        "%Y-%m-%d",  # 2024-01-13
-        "%d-%m-%Y",  # 13-01-2024
-        "%m-%d-%Y",  # 01-13-2024
-    ]
+    # Datetime → Date (handles Datetime('ms'), Datetime('us'), etc.)
+    if dtype == pl.Datetime or str(dtype).startswith("Datetime"):
+        return df.with_columns(pl.col("Date").dt.date().alias("Date"))
 
-    for fmt in date_formats:
-        try:
-            parsed = df.with_columns(
-                pl.col("Date").str.strptime(pl.Date, fmt, strict=False).alias("Date")
-            )
-            # Check if parsing worked (not all nulls)
-            if parsed["Date"].null_count() < len(parsed):
-                return parsed
-        except Exception:
-            continue
+    # String → try known formats
+    for fmt in DATE_FORMATS:
+        parsed = df.with_columns(
+            pl.col("Date").str.strptime(pl.Date, fmt, strict=False).alias("Date")
+        )
+        if parsed["Date"].null_count() < len(parsed):
+            return parsed
 
-    # Fallback: try automatic casting with strict=False
-    try:
-        return df.with_columns(pl.col("Date").cast(pl.Date, strict=False).alias("Date"))
-    except Exception:
-        return df
+    # Last resort: auto-cast
+    return df.with_columns(pl.col("Date").cast(pl.Date, strict=False).alias("Date"))
 
 
 def load_config(config_path: str = "config.yaml") -> dict:
@@ -295,16 +295,22 @@ def run_simple_etl_files(
                 continue
 
             if "Date" in df.columns:
-                df = _parse_date_column(df)
-                if df["Date"].null_count() > len(df) * 0.5:
+                try:
+                    df = _parse_date_column(df)
+                    if df["Date"].null_count() > len(df) * 0.5:
+                        file_errors.append(
+                            {
+                                "file": file.name,
+                                "error": f"Date parsing failed for {df['Date'].null_count()}/{len(df)} rows",
+                                "warning": True,
+                            }
+                        )
+                        log(f"     ⚠️ {df['Date'].null_count()} rows with invalid dates")
+                except Exception as e:
                     file_errors.append(
-                        {
-                            "file": file.name,
-                            "error": f"Date parsing failed for {df['Date'].null_count()}/{len(df)} rows",
-                            "warning": True,
-                        }
+                        {"file": file.name, "error": f"Date parse error: {e}", "warning": True}
                     )
-                    log(f"     ⚠️ {df['Date'].null_count()} rows with invalid dates")
+                    log(f"     ⚠️ Date parse error: {e}")
 
             dataframes.append(df)
             files_loaded += 1
@@ -434,17 +440,22 @@ def run_simple_etl(
 
             # Parse date column with multiple format support
             if "Date" in df.columns:
-                df = _parse_date_column(df)
-                # Check for parsing failures
-                if df["Date"].null_count() > len(df) * 0.5:
+                try:
+                    df = _parse_date_column(df)
+                    if df["Date"].null_count() > len(df) * 0.5:
+                        file_errors.append(
+                            {
+                                "file": file.name,
+                                "error": f"Date parsing failed for {df['Date'].null_count()}/{len(df)} rows",
+                                "warning": True,
+                            }
+                        )
+                        log(f"     ⚠️ {df['Date'].null_count()} rows with invalid dates")
+                except Exception as e:
                     file_errors.append(
-                        {
-                            "file": file.name,
-                            "error": f"Date parsing failed for {df['Date'].null_count()}/{len(df)} rows",
-                            "warning": True,
-                        }
+                        {"file": file.name, "error": f"Date parse error: {e}", "warning": True}
                     )
-                    log(f"     ⚠️ {df['Date'].null_count()} rows with invalid dates")
+                    log(f"     ⚠️ Date parse error: {e}")
 
             dataframes.append(df)
             files_loaded += 1
