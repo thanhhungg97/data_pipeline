@@ -41,11 +41,7 @@ sys.path.insert(0, resource_path("."))
 
 
 class DashboardServer:
-    """Simple HTTP server to serve dashboard without CORS issues.
-
-    Supports SPA (Single Page Application) routing by falling back to
-    index.html for routes that don't match actual files.
-    """
+    """Simple HTTP server to serve dashboard without CORS issues."""
 
     def __init__(self, directory: str, port: int = 8765):
         self.port = port
@@ -57,35 +53,17 @@ class DashboardServer:
         """Start server and return the port."""
         directory = self.directory
 
-        class SPAHandler(http.server.SimpleHTTPRequestHandler):
-            """Handler with SPA fallback support."""
-
+        class Handler(http.server.SimpleHTTPRequestHandler):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, directory=directory, **kwargs)
 
-            def do_GET(self):
-                try:
-                    # Try to serve the file normally first
-                    path = self.translate_path(self.path)
-
-                    # If file exists, serve it
-                    if Path(path).exists():
-                        return super().do_GET()
-
-                    # For SPA routes (no file extension), serve index.html
-                    # This allows React Router to handle the routing
-                    if "." not in Path(self.path).name:
-                        self.path = "/index.html"
-
-                    return super().do_GET()
-                except Exception as e:
-                    print(f"[DashboardServer] Error handling {self.path}: {e}")
-                    self.send_error(500, str(e))
+            def log_message(self, format, *args):
+                pass  # Suppress logging
 
         # Find available port
         for port in range(self.port, self.port + 100):
             try:
-                self.server = socketserver.TCPServer(("127.0.0.1", port), SPAHandler)
+                self.server = socketserver.TCPServer(("", port), Handler)
                 self.port = port
                 break
             except OSError:

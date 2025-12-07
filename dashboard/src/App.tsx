@@ -13,7 +13,7 @@ import {
   XAxis,
   YAxis
 } from 'recharts';
-import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom';
+import { HashRouter, NavLink, Route, Routes } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 
 import Select from 'react-select';
@@ -117,7 +117,7 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <div className="min-h-screen">
         <Navigation />
         <Routes>
@@ -126,7 +126,7 @@ function App() {
           <Route path="/sources" element={<Sources data={data} />} />
         </Routes>
       </div>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 
