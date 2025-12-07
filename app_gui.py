@@ -862,8 +862,11 @@ class DataPipelineApp(ctk.CTk):
         sources = []
         for card in self.source_cards.values():
             source = card.get_source()
-            if not source["path"] or not os.path.isdir(source["path"]):
-                messagebox.showerror("Error", f"Invalid path: {source['name']}")
+            # Valid if: has selected files OR has valid folder path
+            has_files = source.get("files") and len(source["files"]) > 0
+            has_folder = source.get("path") and os.path.isdir(source["path"])
+            if not has_files and not has_folder:
+                messagebox.showerror("Error", f"No files or folder selected: {source['name']}")
                 return
             sources.append(source)
 
