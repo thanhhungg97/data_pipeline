@@ -4,12 +4,9 @@ Uses CustomTkinter for modern UI design.
 Supports multiple sources with custom names and paths.
 """
 
-import atexit
-import http.server
 import json
 import os
 import shutil
-import socketserver
 import sys
 import threading
 import webbrowser
@@ -18,76 +15,7 @@ from pathlib import Path
 import customtkinter as ctk
 import yaml
 
-# ============================================================
-# HTTP SERVER FOR DASHBOARD
-# ============================================================
-
-
-class DashboardServer:
-    """Simple HTTP server to serve dashboard without CORS issues."""
-
-    def __init__(self, directory: str, port: int = 8765):
-        self.port = port
-        self.directory = directory
-        self.server = None
-        self.thread = None
-
-    def start(self) -> int:
-        """Start server and return the port."""
-        directory = self.directory
-
-        class Handler(http.server.SimpleHTTPRequestHandler):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, directory=directory, **kwargs)
-
-        # Find available port
-        for port in range(self.port, self.port + 100):
-            try:
-                self.server = socketserver.TCPServer(("127.0.0.1", port), Handler)
-                self.port = port
-                break
-            except OSError:
-                continue
-        else:
-            raise RuntimeError("No available port found")
-
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
-        self.thread.start()
-        return self.port
-
-    def stop(self):
-        """Stop the server."""
-        if self.server:
-            self.server.shutdown()
-            self.server = None
-
-    def get_url(self) -> str:
-        """Get the dashboard URL."""
-        return f"http://localhost:{self.port}"
-
-
-# Global server instance (reused across runs)
-_dashboard_server: DashboardServer | None = None
-
-
-def get_dashboard_server(directory: str) -> DashboardServer:
-    """Get or create dashboard server for the given directory."""
-    global _dashboard_server
-
-    if _dashboard_server is not None:
-        # Stop existing server if directory changed
-        if _dashboard_server.directory != directory:
-            _dashboard_server.stop()
-            _dashboard_server = None
-
-    if _dashboard_server is None:
-        _dashboard_server = DashboardServer(directory)
-        _dashboard_server.start()
-        # Register cleanup on exit
-        atexit.register(lambda: _dashboard_server.stop() if _dashboard_server else None)
-
-    return _dashboard_server
-
+from dashboard_server import get_dashboard_server
 
 # Set appearance
 ctk.set_appearance_mode("dark")
