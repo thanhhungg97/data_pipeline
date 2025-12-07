@@ -44,16 +44,11 @@ def build():
         # Include config file
         "--add-data",
         "config.yaml;.",  # Use ; on Windows, : on Mac/Linux
-        # Include dashboard server module
-        "--add-data",
-        "dashboard_server.py;.",  # Include dashboard server
         # Include src/etl package
         "--add-data",
         "src;src",  # Include entire src directory
         *dashboard_args,  # Include React dashboard if available
         # Hidden imports for the ETL modules
-        "--hidden-import",
-        "dashboard_server",  # Dashboard server module
         "--hidden-import",
         "src.etl",
         "--hidden-import",
