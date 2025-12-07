@@ -12,17 +12,8 @@ import threading
 import webbrowser
 from pathlib import Path
 
-import customtkinter as ctk
-import yaml
 
-from dashboard_server import get_dashboard_server
-
-# Set appearance
-ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("blue")
-
-
-# Handle PyInstaller bundled paths
+# Handle PyInstaller bundled paths - MUST be before local imports
 def resource_path(relative_path):
     """Get absolute path to resource, works for dev and PyInstaller."""
     if hasattr(sys, "_MEIPASS"):
@@ -30,11 +21,17 @@ def resource_path(relative_path):
     return os.path.join(os.path.abspath("."), relative_path)
 
 
-# ============================================================
-# LAZY IMPORT FOR FASTER STARTUP
-# ============================================================
-
+# Add bundled path to sys.path for local module imports
 sys.path.insert(0, resource_path("."))
+
+import customtkinter as ctk  # noqa: E402
+import yaml  # noqa: E402
+
+from dashboard_server import get_dashboard_server  # noqa: E402
+
+# Set appearance
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("blue")
 
 # Don't import polars/ETL at startup - import when needed
 _etl_module = None
