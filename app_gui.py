@@ -41,7 +41,11 @@ sys.path.insert(0, resource_path("."))
 
 
 class DashboardServer:
-    """Simple HTTP server to serve dashboard without CORS issues."""
+    """Simple HTTP server to serve dashboard without CORS issues.
+
+    Supports SPA (Single Page Application) routing by falling back to
+    index.html for routes that don't match actual files.
+    """
 
     def __init__(self, directory: str, port: int = 8765):
         self.port = port
@@ -53,17 +57,33 @@ class DashboardServer:
         """Start server and return the port."""
         directory = self.directory
 
-        class Handler(http.server.SimpleHTTPRequestHandler):
+        class SPAHandler(http.server.SimpleHTTPRequestHandler):
+            """Handler with SPA fallback support."""
+
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, directory=directory, **kwargs)
+
+            def do_GET(self):
+                # Try to serve the file normally first
+                path = self.translate_path(self.path)
+
+                # If file exists, serve it
+                if os.path.exists(path):
+                    return super().do_GET()
+
+                # For SPA routes (no file extension), serve index.html
+                if "." not in os.path.basename(self.path):
+                    self.path = "/index.html"
+
+                return super().do_GET()
 
             def log_message(self, format, *args):
                 pass  # Suppress logging
 
-        # Find available port
+        # Find available port - use "" for cross-platform compatibility
         for port in range(self.port, self.port + 100):
             try:
-                self.server = socketserver.TCPServer(("", port), Handler)
+                self.server = socketserver.TCPServer(("", port), SPAHandler)
                 self.port = port
                 break
             except OSError:

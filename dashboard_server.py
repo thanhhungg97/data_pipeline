@@ -36,28 +36,24 @@ class DashboardServer:
                 super().__init__(*args, directory=directory, **kwargs)
 
             def do_GET(self):
-                try:
-                    # Try to serve the file normally first
-                    path = self.translate_path(self.path)
+                # Try to serve the file normally first
+                path = self.translate_path(self.path)
 
-                    # If file exists, serve it
-                    if Path(path).exists():
-                        return super().do_GET()
-
-                    # For SPA routes (no file extension), serve index.html
-                    # This allows React Router to handle the routing
-                    if "." not in Path(self.path).name:
-                        self.path = "/index.html"
-
+                # If file exists, serve it
+                if Path(path).exists():
                     return super().do_GET()
-                except Exception as e:
-                    print(f"[DashboardServer] Error handling {self.path}: {e}")
-                    self.send_error(500, str(e))
 
-        # Find available port
+                # For SPA routes (no file extension), serve index.html
+                # This allows React Router to handle the routing
+                if "." not in Path(self.path).name:
+                    self.path = "/index.html"
+
+                return super().do_GET()
+
+        # Find available port - use "" for cross-platform compatibility
         for port in range(self.port, self.port + 100):
             try:
-                self.server = socketserver.TCPServer(("127.0.0.1", port), SPAHandler)
+                self.server = socketserver.TCPServer(("", port), SPAHandler)
                 self.port = port
                 break
             except OSError:
