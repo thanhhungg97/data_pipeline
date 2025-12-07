@@ -72,8 +72,10 @@ jobs:
           pyinstaller --onefile --windowed `
             --name "DataProcessingPipeline-${{ steps.version.outputs.version }}" `
             --add-data "config.yaml;." `
+            --add-data "dashboard_server.py;." `
             --add-data "src;src" `
             --add-data "dashboard/dist;dashboard_dist" `
+            --hidden-import dashboard_server `
             --hidden-import src.etl `
             --hidden-import src.etl.pipeline `
             --hidden-import src.etl.base `
