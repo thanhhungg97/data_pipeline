@@ -4,9 +4,12 @@ Uses CustomTkinter for modern UI design.
 Supports multiple sources with custom names and paths.
 """
 
+import atexit
+import http.server
 import json
 import os
 import shutil
+import socketserver
 import sys
 import threading
 import webbrowser
@@ -14,6 +17,77 @@ from pathlib import Path
 
 import customtkinter as ctk
 import yaml
+
+# ============================================================
+# HTTP SERVER FOR DASHBOARD
+# ============================================================
+
+
+class DashboardServer:
+    """Simple HTTP server to serve dashboard without CORS issues."""
+
+    def __init__(self, directory: str, port: int = 8765):
+        self.port = port
+        self.directory = directory
+        self.server = None
+        self.thread = None
+
+    def start(self) -> int:
+        """Start server and return the port."""
+        directory = self.directory
+
+        class Handler(http.server.SimpleHTTPRequestHandler):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, directory=directory, **kwargs)
+
+        # Find available port
+        for port in range(self.port, self.port + 100):
+            try:
+                self.server = socketserver.TCPServer(("127.0.0.1", port), Handler)
+                self.port = port
+                break
+            except OSError:
+                continue
+        else:
+            raise RuntimeError("No available port found")
+
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        return self.port
+
+    def stop(self):
+        """Stop the server."""
+        if self.server:
+            self.server.shutdown()
+            self.server = None
+
+    def get_url(self) -> str:
+        """Get the dashboard URL."""
+        return f"http://localhost:{self.port}"
+
+
+# Global server instance (reused across runs)
+_dashboard_server: DashboardServer | None = None
+
+
+def get_dashboard_server(directory: str) -> DashboardServer:
+    """Get or create dashboard server for the given directory."""
+    global _dashboard_server
+
+    if _dashboard_server is not None:
+        # Stop existing server if directory changed
+        if _dashboard_server.directory != directory:
+            _dashboard_server.stop()
+            _dashboard_server = None
+
+    if _dashboard_server is None:
+        _dashboard_server = DashboardServer(directory)
+        _dashboard_server.start()
+        # Register cleanup on exit
+        atexit.register(lambda: _dashboard_server.stop() if _dashboard_server else None)
+
+    return _dashboard_server
+
 
 # Set appearance
 ctk.set_appearance_mode("dark")
@@ -315,7 +389,7 @@ def export_data_json(data_dir: str) -> str:
 
 
 def deploy_react_dashboard(output_dir: str, data: dict) -> str:
-    """Create standalone HTML dashboard with embedded data (no CORS issues)."""
+    """Deploy React dashboard and return the directory path."""
     bundled_dist = resource_path("dashboard_dist")
     local_dist = resource_path("dashboard/dist")
 
@@ -334,32 +408,12 @@ def deploy_react_dashboard(output_dir: str, data: dict) -> str:
 
     shutil.copytree(src_dir, dest_dir)
 
-    # Embed data directly in HTML to avoid CORS issues with file:// protocol
-    index_path = dest_dir / "index.html"
-    if index_path.exists():
-        html_content = index_path.read_text(encoding="utf-8")
+    # Write data.json for the dashboard to fetch via HTTP
+    data_path = dest_dir / "data.json"
+    with open(data_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
 
-        # Escape </script> in JSON to prevent HTML injection issues
-        json_data = json.dumps(data, ensure_ascii=False)
-        json_data = json_data.replace("</script>", "<\\/script>")
-        json_data = json_data.replace("</Script>", "<\\/Script>")
-
-        # Inject data as inline script that runs immediately
-        data_script = f"<script>window.__DASHBOARD_DATA__={json_data};</script>"
-
-        # Insert right after <head> so it loads before React
-        html_content = html_content.replace("<head>", f"<head>\n    {data_script}")
-
-        # Fix for file:// protocol: remove 'type="module"' and 'crossorigin'
-        # These cause CORS errors when opening HTML directly from filesystem
-        # Add 'defer' so script waits for DOM (module scripts defer by default)
-        html_content = html_content.replace(' type="module" crossorigin', " defer")
-        html_content = html_content.replace(' type="module"', " defer")
-        html_content = html_content.replace(" crossorigin", "")
-
-        index_path.write_text(html_content, encoding="utf-8")
-
-    return str(index_path)
+    return str(dest_dir)
 
 
 # ============================================================
@@ -881,10 +935,16 @@ class DataPipelineApp(ctk.CTk):
         threading.Thread(target=task, daemon=True).start()
 
     def open_dashboard(self):
+        """Open dashboard in browser via HTTP server."""
         if self.dashboard_path:
-            webbrowser.open(f"file://{self.dashboard_path}")
-        else:
-            webbrowser.open(f"file://{self.output_var.get()}")
+            try:
+                server = get_dashboard_server(self.dashboard_path)
+                url = server.get_url()
+                self.log(f"🌐 Dashboard server: {url}")
+                webbrowser.open(url)
+            except Exception as e:
+                self.log(f"⚠️ Server error: {e}, opening file directly")
+                webbrowser.open(f"file://{self.dashboard_path}/index.html")
 
 
 def main():

@@ -85,20 +85,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check for embedded data first (for file:// protocol, no CORS)
-    const embeddedData = (window as unknown as { __DASHBOARD_DATA__?: DashboardData }).__DASHBOARD_DATA__;
-    if (embeddedData) {
-      setData(embeddedData);
-      setLoading(false);
-      return;
-    }
-
-    // Only fetch if we're on http/https (not file://)
-    if (window.location.protocol === 'file:') {
-      setError('No embedded data found. Please regenerate the dashboard.');
-      setLoading(false);
-      return;
-    }
+    // Fetch data from local server
 
     // Fallback to fetch for dev server
     fetch('./data.json')

@@ -9,16 +9,5 @@ export default defineConfig({
     emptyOutDir: true,
     chunkSizeWarningLimit: 800,
     minify: 'esbuild',
-    rollupOptions: {
-      output: {
-        // IIFE format works with file:// protocol (no ES modules)
-        format: 'iife',
-        // Single file output
-        inlineDynamicImports: true,
-        // Predictable names
-        entryFileNames: 'assets/app.js',
-        assetFileNames: 'assets/[name].[ext]',
-      },
-    },
   },
 })
